@@ -94,6 +94,12 @@ inline bool operator<(const GFSDK_Aftermath_ShaderInstructionsHash& lhs, const G
     return lhs.hash < rhs.hash;
 }
 
+// Helper for comparing GFSDK_Aftermath_ShaderDebugName.
+inline bool operator<(const GFSDK_Aftermath_ShaderDebugName& lhs, const GFSDK_Aftermath_ShaderDebugName& rhs)
+{
+    return strncmp(lhs.name, rhs.name, sizeof(lhs.name)) < 0;
+}
+
 //*********************************************************
 // Helper for checking Nsight Aftermath failures.
 //

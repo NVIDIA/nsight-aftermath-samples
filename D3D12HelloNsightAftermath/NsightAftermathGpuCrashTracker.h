@@ -28,6 +28,7 @@
 #include <mutex>
 
 #include "NsightAftermathHelpers.h"
+#include "NsightAftermathShaderDatabase.h"
 
 //*********************************************************
 // Implements GPU crash dump tracking using the Nsight
@@ -41,9 +42,6 @@ public:
 
     // Initialize the GPU crash dump tracker.
     void Initialize();
-
-    // Register a shader bytecode binary with the GPU crash dump tracker.
-    void RegisterShaderBinary(const D3D12_SHADER_BYTECODE& shader);
 
 private:
 
@@ -93,6 +91,11 @@ private:
         const GFSDK_Aftermath_ShaderInstructionsHash& shaderInstructionsHash,
         PFN_GFSDK_Aftermath_SetData setShaderBinary) const;
 
+    // Handler for shader source debug info lookup callbacks.
+    void OnShaderSourceDebugInfoLookup(
+        const GFSDK_Aftermath_ShaderDebugName& shaderDebugName,
+        PFN_GFSDK_Aftermath_SetData setShaderBinary) const;
+
     //*********************************************************
     // Static callback wrappers.
     //
@@ -132,6 +135,12 @@ private:
         PFN_GFSDK_Aftermath_SetData setShaderBinary,
         void* pUserData);
 
+    // Shader source debug info lookup callback.
+    static void ShaderSourceDebugInfoLookupCallback(
+        const GFSDK_Aftermath_ShaderDebugName* pShaderDebugName,
+        PFN_GFSDK_Aftermath_SetData setShaderBinary,
+        void* pUserData);
+
     //*********************************************************
     // GPU crash tracker state.
     //
@@ -145,9 +154,6 @@ private:
     // List of Shader Debug Information by ShaderDebugInfoIdentifier.
     std::map<GFSDK_Aftermath_ShaderDebugInfoIdentifier, std::vector<uint8_t>> m_shaderDebugInfo;
 
-    // List of shader binaries by ShaderHash.
-    std::map<GFSDK_Aftermath_ShaderHash, std::vector<uint8_t>> m_shaderBinaries;
-
-    // Map from ShaderInstructionsHash to ShaderHash.
-    std::map<GFSDK_Aftermath_ShaderInstructionsHash, GFSDK_Aftermath_ShaderHash> m_shaderInstructionsToShaderHash;
+    // The mock shader database.
+    ShaderDatabase m_shaderDatabase;
 };

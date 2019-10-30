@@ -87,16 +87,6 @@ void D3D12HelloNsightAftermath::LoadPipeline()
         // Enable Nsight Aftermath GPU crash dump creation.
         // This needs to be done before the D3D device is created.
         m_gpuCrashTracker.Initialize();
-
-        // Allow Aftermath to access the (non-stripped) shader binaries in order
-        // to generate source-level debug information for the shaders.
-        // NOTE: The GFSDK_Aftermath_SetShaderDebugInfoPaths() function will be
-        // deprecated in a future release as we are improving this capability to
-        // allow for late binding to the debug information that will no longer
-        // require the application to provide the non-stripped shader binaries at
-        // runtime.
-        const char* debugInfoPaths[] = { SHADERS_DIR, 0 };
-        AFTERMATH_CHECK_ERROR(GFSDK_Aftermath_SetShaderDebugInfoPaths(debugInfoPaths, false));
 #endif
 
         ThrowIfFailed(D3D12CreateDevice(
@@ -107,34 +97,35 @@ void D3D12HelloNsightAftermath::LoadPipeline()
 
 #if defined(USE_NSIGHT_AFTERMATH)
         // Initialize Nsight Aftermath for this device.
+        //
         // * EnableMarkers - this will include information about the Aftermath
         //   event marker nearest to the crash.
+        //
+        //   Using event markers should be considered carefully as they can cause
+        //   considerable CPU overhead when used in high frequency code paths.
+        //
         // * EnableResourceTracking - this will include additional information about the
         //   resource related to a GPU virtual address seen in case of a crash due to a GPU
         //   page fault. This includes, for example, information about the size of the
         //   resource, its format, and an indication if the resource has been deleted.
-        // * CallStackCapturing - this will include call stack and module
-        //   information for the draw call, compute dispatch, or resource copy nearest to
-        //   the crash. Using this option should be considered carefully. Enabling call
-        //   stack capturing will cause high CPU overhead.
+        //
+        // * CallStackCapturing - this will include call stack and module information for
+        //   the draw call, compute dispatch, or resource copy nearest to the crash.
+        //
+        //   Using this option should be considered carefully. Enabling call stack
+        //   capturing will cause very high CPU overhead.
+        //
         // * GenerateShaderDebugInfo - this instructs the shader compiler to
         //   generate debug information (line tables) for all shaders. Using this option
         //   should be considered carefully. It may cause considerable shader compilation
         //   overhead and additional overhead for handling the corresponding shader debug
         //   information callbacks.
-        // * EnableShaderSourceTracking - this instructs the shader compiler to generate
-        //   source-level line tables for all shaders where it is possible. This requires
-        //   the application to load non-stripped shader binaries.
-        //   NOTE: This flag will be deprecated in a future release as we are improving
-        //   this capability to allow for late binding to the debug information that will
-        //   no longer require the application to provide the non-stripped shader binaries
-        //   at runtime.
+        //
         const int aftermathFlags =
             GFSDK_Aftermath_FeatureFlags_EnableMarkers |             // Enable event marker tracking.
             GFSDK_Aftermath_FeatureFlags_EnableResourceTracking |    // Enable tracking of resources.
             GFSDK_Aftermath_FeatureFlags_CallStackCapturing |        // Capture call stacks for all draw calls, compute dispatches, and resource copies.
-            GFSDK_Aftermath_FeatureFlags_GenerateShaderDebugInfo |   // Generate debug information for shaders.
-            GFSDK_Aftermath_FeatureFlags_EnableShaderSourceTracking; // Enable source-level debug information for shaders.
+            GFSDK_Aftermath_FeatureFlags_GenerateShaderDebugInfo;    // Generate debug information for shaders.
 
         AFTERMATH_CHECK_ERROR(GFSDK_Aftermath_DX12_Initialize(
             GFSDK_Aftermath_Version_API,
@@ -277,17 +268,6 @@ void D3D12HelloNsightAftermath::LoadAssets()
         psoDesc.SampleDesc.Count = 1;
 
         ThrowIfFailed(m_device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_pipelineState)));
-
-#if defined(USE_NSIGHT_AFTERMATH)
-        // Register the shaders with the GPU crash dump tracker. This is
-        // for demonstration purposes only. In an actual implementation the
-        // application would only have access to the stripped shader binaries
-        // and the decoding of crash dumps would be done as part of the telemetry
-        // data analysis using both the stripped and the not stripped shader
-        // binaries generated at build time.
-        m_gpuCrashTracker.RegisterShaderBinary(psoDesc.VS);
-        m_gpuCrashTracker.RegisterShaderBinary(psoDesc.PS);
-#endif
     }
 
     // Create the command list.

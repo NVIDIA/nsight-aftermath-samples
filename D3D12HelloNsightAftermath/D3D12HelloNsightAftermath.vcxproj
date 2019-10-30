@@ -115,6 +115,7 @@
       <VariableName>g_%(Filename)</VariableName>
       <HeaderFileOutput>$(OutDir)CompiledShaders\%(Filename).h</HeaderFileOutput>
       <ObjectFileOutput>$(OutDir)Shaders\%(Filename).cso</ObjectFileOutput>
+      <AdditionalOptions>/Fd $(OutDir)Shaders\</AdditionalOptions>
       <EnableDebuggingInformation>true</EnableDebuggingInformation>
       <DisableOptimizations Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DisableOptimizations>
       <DisableOptimizations Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</DisableOptimizations>
@@ -122,6 +123,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="NsightAftermathGpuCrashTracker.h" />
+    <ClInclude Include="NsightAftermathShaderDatabase.h" />
     <ClInclude Include="NsightAftermathHelpers.h" />
     <ClInclude Include="Win32Application.h" />
     <ClInclude Include="D3D12HelloNsightAftermath.h" />
@@ -132,6 +134,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="NsightAftermathGpuCrashTracker.cpp" />
+    <ClCompile Include="NsightAftermathShaderDatabase.cpp" />
     <ClCompile Include="Win32Application.cpp" />
     <ClCompile Include="D3D12HelloNsightAftermath.cpp" />
     <ClCompile Include="DXSample.cpp" />
