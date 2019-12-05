@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
     <PropertyGroup Label="UserMacros">
-        <NsightAftermathDir>H:\src\sw\devtools\Agora\Dev\Grfx\Built\Bin\NsightAftermathSDK-Debug-public\target</NsightAftermathDir>
+        <NsightAftermathDir>$(SolutionDir)..\..</NsightAftermathDir>
         <NsightAftermathIncludeDir>$(NsightAftermathDir)\include</NsightAftermathIncludeDir>
         <NsightAftermathLibDir>$(NsightAftermathDir)\lib\x64</NsightAftermathLibDir>
   </PropertyGroup>
@@ -11,7 +11,7 @@
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(NsightAftermathLibDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>GFSDK_AFTERMATH_Lib.x64.DEBUG.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>GFSDK_AFTERMATH_Lib.x64.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
 </Project>
