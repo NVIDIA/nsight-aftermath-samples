@@ -14,6 +14,7 @@ listed, some executing warps without any problems or exceptions, and some
 indicating the faulting warps.
 
 ## Files
+
 * D3D12HelloNsightAftermath-12252-1.nv-gpudmp -- the GPU crash dump file.
 * shader-59339c1ea8934740-00000210749de540.nvdbg -- the debug information file
   for the shader referenced in the GPU crash dump.
@@ -23,6 +24,7 @@ indicating the faulting warps.
 * Extras\SourceShaders -- shader source files required to show the shader source.
 
 ## Reading the GPU Crash Dump 
+
 * Install [Nsight Graphics](https://developer.nvidia.com/nsight-graphics)
 * Run Nsight Graphics from the start menu
 * Open the Gpu Crash Dump Options dialog (`Tools->Options...->GPU Crash Dump`).

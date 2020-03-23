@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-    <PropertyGroup Label="UserMacros">
-        <NsightAftermathDir>$(SolutionDir)..\..</NsightAftermathDir>
-        <NsightAftermathIncludeDir>$(NsightAftermathDir)\include</NsightAftermathIncludeDir>
-        <NsightAftermathLibDir>$(NsightAftermathDir)\lib\x64</NsightAftermathLibDir>
+  <PropertyGroup Label="UserMacros">
+    <NSIGHT_AFTERMATH_SDK Condition="'$(NSIGHT_AFTERMATH_SDK)' == ''">C:\NsightAftermathSDK</NSIGHT_AFTERMATH_SDK>
+    <NsightAftermathIncludeDir>$(NSIGHT_AFTERMATH_SDK)\include</NsightAftermathIncludeDir>
+    <NsightAftermathLibDir>$(NSIGHT_AFTERMATH_SDK)\lib\x64</NsightAftermathLibDir>
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>

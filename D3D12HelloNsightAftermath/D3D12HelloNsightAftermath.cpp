@@ -121,7 +121,7 @@ void D3D12HelloNsightAftermath::LoadPipeline()
         //   overhead and additional overhead for handling the corresponding shader debug
         //   information callbacks.
         //
-        const int aftermathFlags =
+        const uint32_t aftermathFlags =
             GFSDK_Aftermath_FeatureFlags_EnableMarkers |             // Enable event marker tracking.
             GFSDK_Aftermath_FeatureFlags_EnableResourceTracking |    // Enable tracking of resources.
             GFSDK_Aftermath_FeatureFlags_CallStackCapturing |        // Capture call stacks for all draw calls, compute dispatches, and resource copies.
@@ -129,7 +129,7 @@ void D3D12HelloNsightAftermath::LoadPipeline()
 
         AFTERMATH_CHECK_ERROR(GFSDK_Aftermath_DX12_Initialize(
             GFSDK_Aftermath_Version_API,
-            static_cast<GFSDK_Aftermath_FeatureFlags>(aftermathFlags),
+            aftermathFlags,
             m_device.Get()));
 #endif
     }

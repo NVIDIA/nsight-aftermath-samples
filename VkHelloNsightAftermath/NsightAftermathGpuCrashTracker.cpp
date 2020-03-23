@@ -22,8 +22,6 @@
 //
 //*********************************************************
 
-#include "stdafx.h"
-
 #include <fstream>
 #include <iomanip>
 #include <string>
@@ -65,7 +63,7 @@ void GpuCrashTracker::Initialize()
     // ShaderDebugInfoCallback will be called for every shader that is compiled.
     AFTERMATH_CHECK_ERROR(GFSDK_Aftermath_EnableGpuCrashDumps(
         GFSDK_Aftermath_Version_API,
-        GFSDK_Aftermath_GpuCrashDumpWatchedApiFlags_DX,
+        GFSDK_Aftermath_GpuCrashDumpWatchedApiFlags_Vulkan,
         GFSDK_Aftermath_GpuCrashDumpFeatureFlags_DeferDebugInfoCallbacks, // Let the Nsight Aftermath library cache shader debug information.
         GpuCrashDumpCallback,                                             // Register callback for GPU crash dumps.
         ShaderDebugInfoCallback,                                          // Register callback for shader debug information.
@@ -114,7 +112,7 @@ void GpuCrashTracker::OnDescription(PFN_GFSDK_Aftermath_AddGpuCrashDumpDescripti
     // Add some basic description about the crash. This is called after the GPU crash happens, but before
     // the actual GPU crash dump callback. The provided data is included in the crash dump and can be
     // retrieved using GFSDK_Aftermath_GpuCrashDump_GetDescription().
-    addDescription(GFSDK_Aftermath_GpuCrashDumpDescriptionKey_ApplicationName, "D3D12HelloNsightAftermath");
+    addDescription(GFSDK_Aftermath_GpuCrashDumpDescriptionKey_ApplicationName, "VkHelloNsightAftermath");
     addDescription(GFSDK_Aftermath_GpuCrashDumpDescriptionKey_ApplicationVersion, "v1.0");
     addDescription(GFSDK_Aftermath_GpuCrashDumpDescriptionKey_UserDefined, "This is a GPU crash dump example.");
     addDescription(GFSDK_Aftermath_GpuCrashDumpDescriptionKey_UserDefined + 1, "Engine State: Rendering.");
@@ -184,7 +182,7 @@ void GpuCrashTracker::WriteGpuCrashDumpToFile(const void* pGpuCrashDump, const u
         GFSDK_Aftermath_GpuCrashDumpFormatterFlags_NONE,
         ShaderDebugInfoLookupCallback,
         ShaderLookupCallback,
-        ShaderInstructionsLookupCallback,
+        nullptr,
         ShaderSourceDebugInfoLookupCallback,
         this,
         &jsonSize));
@@ -267,29 +265,6 @@ void GpuCrashTracker::OnShaderLookup(
     setShaderBinary(shaderBinary.data(), uint32_t(shaderBinary.size()));
 }
 
-// Handler for shader instructions lookup callbacks.
-// This is used by the JSON decoder for mapping shader instruction
-// addresses to DXIL lines or HLSL source lines.
-// NOTE: If the application loads stripped shader binaries (-Qstrip_debug),
-// Aftermath will require access to both the stripped and the not stripped
-// shader binaries.
-void GpuCrashTracker::OnShaderInstructionsLookup(
-    const GFSDK_Aftermath_ShaderInstructionsHash& shaderInstructionsHash,
-    PFN_GFSDK_Aftermath_SetData setShaderBinary) const
-{
-    // Find shader binary data for the shader instruction hash in the shader database.
-    std::vector<uint8_t> shaderBinary;
-    if (!m_shaderDatabase.FindShaderBinary(shaderInstructionsHash, shaderBinary))
-    {
-        // Early exit, nothing found. No need to call setShaderBinary.
-        return;
-    }
-
-    // Let the GPU crash dump decoder know about the shader data
-    // that was found.
-    setShaderBinary(shaderBinary.data(), uint32_t(shaderBinary.size()));
-}
-
 // Handler for shader source debug info lookup callbacks.
 // This is used by the JSON decoder for mapping shader instruction addresses to
 // HLSL source lines, if the shaders used by the application were compiled with
@@ -299,8 +274,8 @@ void GpuCrashTracker::OnShaderSourceDebugInfoLookup(
     PFN_GFSDK_Aftermath_SetData setShaderBinary) const
 {
     // Find source debug info for the shader DebugName in the shader database.
-    std::vector<uint8_t> sourceDebugInfo;
-    if (!m_shaderDatabase.FindSourceShaderDebugData(shaderDebugName, sourceDebugInfo))
+    std::vector<uint8_t> shaderBinary;
+    if (!m_shaderDatabase.FindShaderBinaryWithDebugData(shaderDebugName, shaderBinary))
     {
         // Early exit, nothing found. No need to call setShaderBinary.
         return;
@@ -308,7 +283,7 @@ void GpuCrashTracker::OnShaderSourceDebugInfoLookup(
 
     // Let the GPU crash dump decoder know about the shader debug data that was
     // found.
-    setShaderBinary(sourceDebugInfo.data(), uint32_t(sourceDebugInfo.size()));
+    setShaderBinary(shaderBinary.data(), uint32_t(shaderBinary.size()));
 }
 
 // Static callback wrapper for OnCrashDump
@@ -358,16 +333,6 @@ void GpuCrashTracker::ShaderLookupCallback(
 {
     GpuCrashTracker* pGpuCrashTracker = reinterpret_cast<GpuCrashTracker*>(pUserData);
     pGpuCrashTracker->OnShaderLookup(*pShaderHash, setShaderBinary);
-}
-
-// Static callback wrapper for OnShaderInstructionsLookup
-void GpuCrashTracker::ShaderInstructionsLookupCallback(
-    const GFSDK_Aftermath_ShaderInstructionsHash* pShaderInstructionsHash,
-    PFN_GFSDK_Aftermath_SetData setShaderBinary,
-    void* pUserData)
-{
-    GpuCrashTracker* pGpuCrashTracker = reinterpret_cast<GpuCrashTracker*>(pUserData);
-    pGpuCrashTracker->OnShaderInstructionsLookup(*pShaderInstructionsHash, setShaderBinary);
 }
 
 // Static callback wrapper for OnShaderSourceDebugInfoLookup
