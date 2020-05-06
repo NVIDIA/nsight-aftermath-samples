@@ -50,13 +50,12 @@
 #define USE_NSIGHT_AFTERMATH 1
 
 #if defined(USE_NSIGHT_AFTERMATH)
+#if VK_HEADER_VERSION < 135
+#error Minimum requirement for the Aftermath application integration is the Vulkan 1.2.135 SDK
+#endif
 #include "NsightAftermathHelpers.h"
 #include "NsightAftermathGpuCrashTracker.h"
 #include "NsightAftermathShaderDatabase.h"
-
-// Temporary definitions for the NV_device_diagnostics_config extension.
-// Remove when the Vulkan SDK has picked up the latest Vulkan headers.
-#include "nv_device_diagnostics_config_ext.h"
 #endif
 
 #ifndef NDEBUG
@@ -750,10 +749,10 @@ void Demo::create_device() {
     //   overhead and additional overhead for handling the corresponding shader debug
     //   information callbacks.
     //
-    VkDeviceDiagnosticsConfigFlagsNV aftermathFlags =
-        VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_RESOURCE_TRACKING_BIT_NV |
-        VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_AUTOMATIC_CHECKPOINTS_BIT_NV |
-        VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_SHADER_DEBUG_INFO_BIT_NV;
+    vk::DeviceDiagnosticsConfigFlagsNV aftermathFlags =
+        vk::DeviceDiagnosticsConfigFlagBitsNV::eEnableResourceTracking |
+        vk::DeviceDiagnosticsConfigFlagBitsNV::eEnableAutomaticCheckpoints |
+        vk::DeviceDiagnosticsConfigFlagBitsNV::eEnableShaderDebugInfo;
     auto& aftermathInfo = deviceCreateInfoChain.get<vk::DeviceDiagnosticsConfigCreateInfoNV>();
     aftermathInfo.setFlags(aftermathFlags);
 #else

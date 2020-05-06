@@ -7,7 +7,7 @@ collection and decoding into a Vulkan application.
 
 * Windows 10 Version 1809 (October 2018 Update) or newer
 * [CMake 3.13 or newer](https://cmake.org/download)
-* [Vulkan-SDK (1.2.131 or newer)](https://vulkan.lunarg.com/sdk/home)
+* [Vulkan-SDK (1.2.135 or newer)](https://vulkan.lunarg.com/sdk/home)
 * [Nsight Aftermath SDK 2020.1 or newer](https://developer.nvidia.com/nsight-aftermath)
 * [NVIDIA R445 display driver or newer](https://www.nvidia.com/Download/index.aspx)
 * [Visual Studio 2017 or newer](https://www.visualstudio.com)
