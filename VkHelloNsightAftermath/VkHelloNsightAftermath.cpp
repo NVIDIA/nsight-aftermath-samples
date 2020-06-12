@@ -58,6 +58,10 @@
 #include "NsightAftermathShaderDatabase.h"
 #endif
 
+#if !defined(_WIN32)
+#include <unistd.h>
+#endif
+
 #ifndef NDEBUG
 #define VERIFY(x) assert(x)
 #else
@@ -798,7 +802,11 @@ void Demo::draw() {
         // Device lost notification is asynchronous to the NVIDIA display
         // driver's GPU crash handling. Give the Nsight Aftermath GPU crash dump
         // thread some time to do its work before terminating the process.
+#if defined(_WIN32)
         Sleep(3000);
+#else
+        sleep(3);
+#endif
 
         // Terminate on failure
         exit(1);
