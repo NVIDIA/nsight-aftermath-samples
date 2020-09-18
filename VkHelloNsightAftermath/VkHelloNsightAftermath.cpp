@@ -41,6 +41,7 @@
 #define VULKAN_HPP_NO_EXCEPTIONS
 #define VULKAN_HPP_TYPESAFE_CONVERSION
 #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
+#define VULKAN_HPP_DISABLE_IMPLICIT_RESULT_VALUE_CAST
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vk_sdk_platform.h>
 
@@ -56,6 +57,10 @@
 #include "NsightAftermathHelpers.h"
 #include "NsightAftermathGpuCrashTracker.h"
 #include "NsightAftermathShaderDatabase.h"
+#endif
+
+#if !defined(_WIN32)
+#include <unistd.h>
 #endif
 
 #ifndef NDEBUG
@@ -798,7 +803,11 @@ void Demo::draw() {
         // Device lost notification is asynchronous to the NVIDIA display
         // driver's GPU crash handling. Give the Nsight Aftermath GPU crash dump
         // thread some time to do its work before terminating the process.
+#if defined(_WIN32)
         Sleep(3000);
+#else
+        sleep(3);
+#endif
 
         // Terminate on failure
         exit(1);

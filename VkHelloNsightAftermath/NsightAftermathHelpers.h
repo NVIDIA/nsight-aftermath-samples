@@ -50,7 +50,7 @@ namespace std
 
     inline std::string to_string(GFSDK_Aftermath_Result result)
     {
-        return std::string("0x") + to_hex_string(static_cast<UINT>(result));
+        return std::string("0x") + to_hex_string(static_cast<uint32_t>(result));
     }
 
     inline std::string to_string(const GFSDK_Aftermath_ShaderDebugInfoIdentifier& identifier)

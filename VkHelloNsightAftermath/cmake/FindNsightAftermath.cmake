@@ -40,7 +40,7 @@
 #   NsightAftermath_LIBRARY        - the path to the NVIDIA Nsight Aftermath SDK library
 #
 
-if(WIN32)
+if(WIN32 OR UNIX)
   find_path(NsightAftermath_INCLUDE_DIR
     NAMES GFSDK_Aftermath.h
     PATHS

@@ -19,7 +19,7 @@
 # CMake project initialization ---------------------------------------------------------------------------------------------------
 # This section contains pre-project() initialization, and ends with the project() command.
 
-cmake_minimum_required(VERSION 3.10.2)
+cmake_minimum_required(VERSION 3.5)
 
 project(VkHelloNsightAftermath)
 
@@ -267,7 +267,8 @@ if(NOT WIN32)
                        cube.frag
                        cube.vert.spirv
                        cube.frag.spirv)
-        target_link_libraries(VkHelloNsightAftermath Vulkan::Vulkan NsightAftermath::NsightAftermath)
+        target_link_libraries(VkHelloNsightAftermath PRIVATE Vulkan::Vulkan NsightAftermath::NsightAftermath dl)
+        target_compile_options(VkHelloNsightAftermath PRIVATE -DVULKAN_HPP_DISABLE_IMPLICIT_RESULT_VALUE_CAST)
 endif()
 else()
     if(CMAKE_CL_64)
@@ -285,7 +286,7 @@ else()
                    cube.frag
                    cube.vert.spirv
                    cube.frag.spirv)
-    target_link_libraries(VkHelloNsightAftermath Vulkan::Vulkan NsightAftermath::NsightAftermath)
+    target_link_libraries(VkHelloNsightAftermath PRIVATE Vulkan::Vulkan NsightAftermath::NsightAftermath)
 endif()
 
 install(TARGETS VkHelloNsightAftermath RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
