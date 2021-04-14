@@ -61,20 +61,24 @@ ShaderDatabase::ShaderDatabase()
 
     // Add shader debug data to database
     const char* shaderDebugDataDirs[] = { SHADERS_DIR, "Shaders" };
+    const char* shaderDebugDataFileExts[] = { ".lld", ".pdb" };
     for (size_t n = 0; n < sizeof(shaderDebugDataDirs) / sizeof(const char*); ++n)
     {
-        const std::string filePattern = std::string(shaderDebugDataDirs[n]) + "/*.lld";
-
-        WIN32_FIND_DATAA findData;
-        HANDLE hFind = FindFirstFileA(filePattern.c_str(), &findData);
-        if (hFind != INVALID_HANDLE_VALUE)
+        for (size_t m = 0; m < sizeof(shaderDebugDataFileExts) / sizeof(const char*); ++m)
         {
-            do
+            const std::string filePattern = std::string(shaderDebugDataDirs[n]) + "/*" + shaderDebugDataFileExts[m];
+
+            WIN32_FIND_DATAA findData;
+            HANDLE hFind = FindFirstFileA(filePattern.c_str(), &findData);
+            if (hFind != INVALID_HANDLE_VALUE)
             {
-                const std::string filePath = std::string(shaderDebugDataDirs[n]) + "/" + findData.cFileName;
-                AddSourceShaderDebugData(filePath.c_str(), findData.cFileName);
-            } while (FindNextFileA(hFind, &findData) != 0);
-            FindClose(hFind);
+                do
+                {
+                    const std::string filePath = std::string(shaderDebugDataDirs[n]) + "/" + findData.cFileName;
+                    AddSourceShaderDebugData(filePath.c_str(), findData.cFileName);
+                } while (FindNextFileA(hFind, &findData) != 0);
+                FindClose(hFind);
+            }
         }
     }
 }
