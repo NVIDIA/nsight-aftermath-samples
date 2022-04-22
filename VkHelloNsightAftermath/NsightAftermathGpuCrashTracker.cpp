@@ -1,6 +1,6 @@
 //*********************************************************
 //
-// Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
+// Copyright (c) 2019-2022, NVIDIA CORPORATION. All rights reserved.
 //
 //  Permission is hereby granted, free of charge, to any person obtaining a
 //  copy of this software and associated documentation files (the "Software"),
@@ -25,6 +25,7 @@
 #include <fstream>
 #include <iomanip>
 #include <string>
+#include <array>
 
 #include "NsightAftermathGpuCrashTracker.h"
 
@@ -32,11 +33,12 @@
 // GpuCrashTracker implementation
 //*********************************************************
 
-GpuCrashTracker::GpuCrashTracker()
+GpuCrashTracker::GpuCrashTracker(const MarkerMap& markerMap)
     : m_initialized(false)
     , m_mutex()
     , m_shaderDebugInfo()
     , m_shaderDatabase()
+    , m_markerMap(markerMap)
 {
 }
 
@@ -68,7 +70,7 @@ void GpuCrashTracker::Initialize()
         GpuCrashDumpCallback,                                             // Register callback for GPU crash dumps.
         ShaderDebugInfoCallback,                                          // Register callback for shader debug information.
         CrashDumpDescriptionCallback,                                     // Register callback for GPU crash dump description.
-        nullptr,
+        ResolveMarkerCallback,                                            // Register callback for resolving application-managed markers.
         this));                                                           // Set the GpuCrashTracker object as user data for the above callbacks.
 
     m_initialized = true;
@@ -120,6 +122,26 @@ void GpuCrashTracker::OnDescription(PFN_GFSDK_Aftermath_AddGpuCrashDumpDescripti
     addDescription(GFSDK_Aftermath_GpuCrashDumpDescriptionKey_UserDefined + 2, "More user-defined information...");
 }
 
+// Handler for app-managed marker resolve callback
+void GpuCrashTracker::OnResolveMarker(const void* pMarker, void** resolvedMarkerData, uint32_t* markerSize)
+{
+    // Important: the pointer passed back via resolvedMarkerData must remain valid after this function returns
+    // using references for all of the m_markerMap accesses ensures that the pointers refer to the persistent data
+    for (auto& map : m_markerMap)
+    {
+        const auto& foundMarker = map.find((uint64_t)pMarker);
+        if (foundMarker != map.end())
+        {
+            const std::string& markerData = foundMarker->second;
+            // std::string::data() will return a valid pointer until the string is next modified
+            // we don't modify the string after calling data() here, so the pointer should remain valid
+            *resolvedMarkerData = (void*)markerData.data();
+            *markerSize = (uint32_t)markerData.length();
+            return;
+        }
+    }
+}
+
 // Helper for writing a GPU crash dump to a file
 void GpuCrashTracker::WriteGpuCrashDumpToFile(const void* pGpuCrashDump, const uint32_t gpuCrashDumpSize)
 {
@@ -164,7 +186,7 @@ void GpuCrashTracker::WriteGpuCrashDumpToFile(const void* pGpuCrashDump, const u
         + "-"
         + std::to_string(++count);
 
-    // Write the the crash dump data to a file using the .nv-gpudmp extension
+    // Write the crash dump data to a file using the .nv-gpudmp extension
     // registered with Nsight Graphics.
     const std::string crashDumpFileName = baseFileName + ".nv-gpudmp";
     std::ofstream dumpFile(crashDumpFileName, std::ios::out | std::ios::binary);
@@ -193,12 +215,13 @@ void GpuCrashTracker::WriteGpuCrashDumpToFile(const void* pGpuCrashDump, const u
         uint32_t(json.size()),
         json.data()));
 
-    // Write the the crash dump data as JSON to a file.
+    // Write the crash dump data as JSON to a file.
     const std::string jsonFileName = crashDumpFileName + ".json";
     std::ofstream jsonFile(jsonFileName, std::ios::out | std::ios::binary);
     if (jsonFile)
     {
-       jsonFile.write(json.data(), json.size());
+       // Write the JSON to the file (excluding string termination)
+       jsonFile.write(json.data(), json.size() - 1);
        jsonFile.close();
     }
 
@@ -313,6 +336,17 @@ void GpuCrashTracker::CrashDumpDescriptionCallback(
 {
     GpuCrashTracker* pGpuCrashTracker = reinterpret_cast<GpuCrashTracker*>(pUserData);
     pGpuCrashTracker->OnDescription(addDescription);
+}
+
+// Static callback wrapper for OnResolveMarker
+void GpuCrashTracker::ResolveMarkerCallback(
+    const void* pMarker,
+    void* pUserData,
+    void** resolvedMarkerData,
+    uint32_t* markerSize)
+{
+    GpuCrashTracker* pGpuCrashTracker = reinterpret_cast<GpuCrashTracker*>(pUserData);
+    pGpuCrashTracker->OnResolveMarker(pMarker, resolvedMarkerData, markerSize);
 }
 
 // Static callback wrapper for OnShaderDebugInfoLookup

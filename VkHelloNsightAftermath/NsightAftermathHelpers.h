@@ -1,6 +1,6 @@
 //*********************************************************
 //
-// Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+// Copyright (c) 2019-2022, NVIDIA CORPORATION. All rights reserved.
 //
 //  Permission is hereby granted, free of charge, to any person obtaining a
 //  copy of this software and associated documentation files (the "Software"),
@@ -99,7 +99,7 @@ inline std::string  AftermathErrorMessage(GFSDK_Aftermath_Result result)
     switch (result)
     {
     case GFSDK_Aftermath_Result_FAIL_DriverVersionNotSupported:
-        return "Unsupported driver version - requires a recent NVIDIA R445 display driver or newer.";
+        return "Unsupported driver version - requires an NVIDIA R495 display driver or newer.";
     default:
         return "Aftermath Error 0x" + std::to_hex_string(result);
     }

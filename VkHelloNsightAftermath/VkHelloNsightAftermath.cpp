@@ -36,6 +36,7 @@
 #include <memory>
 #include <fstream>
 #include <vector>
+#include <thread>
 
 #define VULKAN_HPP_NO_SMART_HANDLE
 #define VULKAN_HPP_NO_EXCEPTIONS
@@ -418,7 +419,9 @@ struct Demo {
 
 #if defined(USE_NSIGHT_AFTERMATH)
     // GPU crash dump tracker using Nsight Aftermath instrumentation
+    GpuCrashTracker::MarkerMap markerMap;
     GpuCrashTracker gpuCrashTracker;
+    uint64_t frameNumber;
 #endif
 };
 
@@ -596,7 +599,13 @@ Demo::Demo()
       use_break{false},
       suppress_popups{false},
       current_buffer{0},
-      queue_family_count{0} {
+      queue_family_count{0} 
+#if defined(USE_NSIGHT_AFTERMATH)
+      , markerMap{},
+      gpuCrashTracker{ markerMap },
+      frameNumber{ 0 }
+#endif
+{
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
     memset(name, '\0', APP_NAME_STR_LEN);
 #endif
@@ -803,11 +812,31 @@ void Demo::draw() {
         // Device lost notification is asynchronous to the NVIDIA display
         // driver's GPU crash handling. Give the Nsight Aftermath GPU crash dump
         // thread some time to do its work before terminating the process.
-#if defined(_WIN32)
-        Sleep(3000);
-#else
-        sleep(3);
-#endif
+        auto tdrTerminationTimeout = std::chrono::seconds(3);
+        auto tStart = std::chrono::steady_clock::now();
+        auto tElapsed = std::chrono::milliseconds::zero();
+
+        GFSDK_Aftermath_CrashDump_Status status = GFSDK_Aftermath_CrashDump_Status_Unknown;
+        AFTERMATH_CHECK_ERROR(GFSDK_Aftermath_GetCrashDumpStatus(&status));
+
+        while (status != GFSDK_Aftermath_CrashDump_Status_CollectingDataFailed &&
+               status != GFSDK_Aftermath_CrashDump_Status_Finished &&
+               tElapsed < tdrTerminationTimeout)
+        {
+            // Sleep 50ms and poll the status again until timeout or Aftermath finished processing the crash dump.
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            AFTERMATH_CHECK_ERROR(GFSDK_Aftermath_GetCrashDumpStatus(&status));
+
+            auto tEnd = std::chrono::steady_clock::now();
+            tElapsed = std::chrono::duration_cast<std::chrono::milliseconds>(tEnd - tStart);
+        }
+
+        if (status != GFSDK_Aftermath_CrashDump_Status_Finished)
+        {
+            std::stringstream err_msg;
+            err_msg << "Unexpected crash dump status: " << status;
+            ERR_EXIT(err_msg.str().c_str(), "Aftermath Error");
+        }
 
         // Terminate on failure
         exit(1);
@@ -838,6 +867,8 @@ void Demo::draw() {
     } while (result != vk::Result::eSuccess);
 
     update_data_buffer();
+
+    draw_build_cmd(swapchain_image_resources[current_buffer].cmd);
 
     // Wait for the image acquired semaphore to be signaled to ensure
     // that the image won't be rendered to until the presentation
@@ -887,6 +918,9 @@ void Demo::draw() {
     result = present_queue.presentKHR(&presentInfo);
     frame_index += 1;
     frame_index %= FRAME_LAG;
+#if defined(USE_NSIGHT_AFTERMATH)
+    frameNumber++;
+#endif
     if (result == vk::Result::eErrorOutOfDateKHR) {
         // swapchain is out of date (e.g. the window was resized) and
         // must be recreated:
@@ -931,8 +965,40 @@ void Demo::draw_build_cmd(vk::CommandBuffer commandBuffer) {
     vk::Rect2D const scissor(vk::Offset2D(0, 0), vk::Extent2D(width, height));
     commandBuffer.setScissor(0, 1, &scissor);
 #if USE_NSIGHT_AFTERMATH
+    // A helper for setting a checkpoint marker
+    auto setCheckpointMarker = [this](vk::CommandBuffer commandBuffer, const std::string& markerData)
+    {
+        // App is responsible for handling marker memory, and for resolving the memory at crash dump generation time.
+        // The actual "const void* pCheckpointMarker" passed to setCheckpointNV in this case can be any uniquely identifying value that the app can resolve to the marker data later.
+        // For this sample, we will use this approach to generating a unique marker value:
+        // We keep a ringbuffer with a marker history of the last c_markerFrameHistory frames (currently 4).
+        unsigned int markerMapIndex = frameNumber % GpuCrashTracker::c_markerFrameHistory;
+        auto& currentFrameMarkerMap = markerMap[markerMapIndex];
+        // Take the index into the ringbuffer, multiply by 10000, and add the total number of markers logged so far in the current frame, +1 to avoid a value of zero.
+        size_t markerID = markerMapIndex * 10000 + currentFrameMarkerMap.size() + 1;
+        // This value is the unique identifier we will pass to Aftermath and internally associate with the marker data in the map.
+        currentFrameMarkerMap[markerID] = markerData;
+        commandBuffer.setCheckpointNV((void*)markerID);
+        // For example, if we are on frame 625, markerMapIndex = 625 % 4 = 1...
+        // The first marker for the frame will have markerID = 1 * 10000 + 0 + 1 = 10001.
+        // The 15th marker for the frame will have markerID = 1 * 10000 + 14 + 1 = 10015.
+        // On the next frame, 626, markerMapIndex = 626 % 4 = 2.
+        // The first marker for this frame will have markerID = 2 * 10000 + 0 + 1 = 20001.
+        // The 15th marker for the frame will have markerID = 2 * 10000 + 14 + 1 = 20015.
+        // So with this scheme, we can safely have up to 10000 markers per frame, and can guarantee a unique markerID for each one.
+        // There are many ways to generate and track markers and unique marker identifiers!
+    };
+    // clear the marker map for the current frame before writing any markers
+    markerMap[frameNumber % GpuCrashTracker::c_markerFrameHistory].clear();
+
+    // A helper that prepends the frame number to a string
+    auto createMarkerStringForFrame = [this](const char* markerString) {
+        std::stringstream ss;
+        ss << "Frame " << frameNumber << ": " << markerString;
+        return ss.str();
+    };
     // Insert a device diagnostic checkpoint into the command stream
-    commandBuffer.setCheckpointNV("Draw Cube");
+    setCheckpointMarker(commandBuffer, createMarkerStringForFrame("Draw Cube"));
 #endif
     commandBuffer.draw(12 * 3, 1, 0, 0);
     // Note that ending the renderpass changes the image's layout from
@@ -1601,7 +1667,9 @@ void Demo::prepare() {
     }
 
     if (separate_present_queue) {
-        auto const present_cmd_pool_info = vk::CommandPoolCreateInfo().setQueueFamilyIndex(present_queue_family_index);
+        auto const present_cmd_pool_info = vk::CommandPoolCreateInfo()
+                                               .setQueueFamilyIndex(present_queue_family_index)
+                                               .setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer);
 
         result = device.createCommandPool(&present_cmd_pool_info, nullptr, &present_cmd_pool);
         VERIFY(result == vk::Result::eSuccess);
@@ -1623,11 +1691,6 @@ void Demo::prepare() {
     prepare_descriptor_set();
 
     prepare_framebuffers();
-
-    for (uint32_t i = 0; i < swapchainImageCount; ++i) {
-        current_buffer = i;
-        draw_build_cmd(swapchain_image_resources[i].cmd);
-    }
 
     /*
      * Prepare functions above may generate pipeline commands

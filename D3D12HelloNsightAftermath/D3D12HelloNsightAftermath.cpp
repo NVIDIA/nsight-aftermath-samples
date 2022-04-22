@@ -18,6 +18,7 @@
 
 #include "VertexShader.h"
 #include "PixelShader.h"
+#include <sstream>
 
 D3D12HelloNsightAftermath::D3D12HelloNsightAftermath(UINT width, UINT height, std::wstring name)
     : DXSample(width, height, name)
@@ -29,7 +30,8 @@ D3D12HelloNsightAftermath::D3D12HelloNsightAftermath(UINT width, UINT height, st
     , m_constantBufferData{}
 #if defined(USE_NSIGHT_AFTERMATH)
     , m_hAftermathCommandListContext(nullptr)
-    , m_gpuCrashTracker()
+    , m_gpuCrashTracker(m_markerMap)
+    , m_frameCounter(0)
 #endif
 {
 }
@@ -101,8 +103,13 @@ void D3D12HelloNsightAftermath::LoadPipeline()
         // * EnableMarkers - this will include information about the Aftermath
         //   event marker nearest to the crash.
         //
-        //   Using event markers should be considered carefully as they can cause
-        //   considerable CPU overhead when used in high frequency code paths.
+        //   Using event markers should be considered carefully as they can
+        //   cause considerable CPU overhead when used in high frequency code
+        //   paths. Therefore, the event marker features is only available if
+        //   the Nsight Aftermath GPU Crash Dump Monitor is running on the
+        //   system. No Aftermath configuration needs to be made in the
+        //   Monitor. It serves only as a dongle to ensure Aftermath event
+        //   markers do not impact application performance on end user systems.
         //
         // * EnableResourceTracking - this will include additional information about the
         //   resource related to a GPU virtual address seen in case of a crash due to a GPU
@@ -122,7 +129,7 @@ void D3D12HelloNsightAftermath::LoadPipeline()
         //   information callbacks.
         //
         const uint32_t aftermathFlags =
-            GFSDK_Aftermath_FeatureFlags_EnableMarkers |             // Enable event marker tracking.
+            GFSDK_Aftermath_FeatureFlags_EnableMarkers |             // Enable event marker tracking. Only effective in combination with the Nsight Aftermath Crash Dump Monitor.
             GFSDK_Aftermath_FeatureFlags_EnableResourceTracking |    // Enable tracking of resources.
             GFSDK_Aftermath_FeatureFlags_CallStackCapturing |        // Capture call stacks for all draw calls, compute dispatches, and resource copies.
             GFSDK_Aftermath_FeatureFlags_GenerateShaderDebugInfo;    // Generate debug information for shaders.
@@ -393,11 +400,36 @@ void D3D12HelloNsightAftermath::OnRender()
         // DXGI_ERROR error notification is asynchronous to the NVIDIA display
         // driver's GPU crash handling. Give the Nsight Aftermath GPU crash dump
         // thread some time to do its work before terminating the process.
-        Sleep(3000);
+        auto tdrTerminationTimeout = std::chrono::seconds(3);
+        auto tStart = std::chrono::steady_clock::now();
+        auto tElapsed = std::chrono::milliseconds::zero();
+
+        GFSDK_Aftermath_CrashDump_Status status = GFSDK_Aftermath_CrashDump_Status_Unknown;
+        AFTERMATH_CHECK_ERROR(GFSDK_Aftermath_GetCrashDumpStatus(&status));
+
+        while (status != GFSDK_Aftermath_CrashDump_Status_CollectingDataFailed &&
+               status != GFSDK_Aftermath_CrashDump_Status_Finished &&
+               tElapsed < tdrTerminationTimeout)
+        {
+            // Sleep 50ms and poll the status again until timeout or Aftermath finished processing the crash dump.
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            AFTERMATH_CHECK_ERROR(GFSDK_Aftermath_GetCrashDumpStatus(&status));
+
+            auto tEnd = std::chrono::steady_clock::now();
+            tElapsed = std::chrono::duration_cast<std::chrono::milliseconds>(tEnd - tStart);
+        }
+
+        if (status != GFSDK_Aftermath_CrashDump_Status_Finished)
+        {
+            std::stringstream err_msg;
+            err_msg << "Unexpected crash dump status: " << status;
+            MessageBoxA(NULL, err_msg.str().c_str(), "Aftermath Error", MB_OK);
+        }
 
         // Terminate on failure
         exit(-1);
     }
+    m_frameCounter++;
 #else
     ThrowIfFailed(m_swapChain->Present(1, 0));
 #endif
@@ -448,9 +480,43 @@ void D3D12HelloNsightAftermath::PopulateCommandList()
     // For maximum CPU performance, use GFSDK_Aftermath_SetEventMarker() with dataSize=0.
     // This instructs Aftermath not to allocate and copy off memory internally, relying on
     // the application to manage marker pointers itself.
-    auto setAftermathEventMarker = [this](const std::string& markerData)
+    auto setAftermathEventMarker = [this](const std::string& markerData, bool appManagedMarker)
     {
-        AFTERMATH_CHECK_ERROR(GFSDK_Aftermath_SetEventMarker(m_hAftermathCommandListContext, (void*)markerData.c_str(), (unsigned int)markerData.size() + 1));
+        if (appManagedMarker)
+        {
+            // App is responsible for handling marker memory, and for resolving the memory at crash dump generation time.
+            // The actual "const void* markerData" passed to Aftermath in this case can be any uniquely identifying value that the app can resolve to the marker data later.
+            // For this sample, we will use this approach to generating a unique marker value:
+            // We keep a ringbuffer with a marker history of the last c_markerFrameHistory frames (currently 4).
+            UINT markerMapIndex = m_frameCounter % GpuCrashTracker::c_markerFrameHistory;
+            auto& currentFrameMarkerMap = m_markerMap[markerMapIndex];
+            // Take the index into the ringbuffer, multiply by 10000, and add the total number of markers logged so far in the current frame, +1 to avoid a value of zero.
+            size_t markerID = markerMapIndex * 10000 + currentFrameMarkerMap.size() + 1;
+            // This value is the unique identifier we will pass to Aftermath and internally associate with the marker data in the map.
+            currentFrameMarkerMap[markerID] = markerData;
+            AFTERMATH_CHECK_ERROR(GFSDK_Aftermath_SetEventMarker(m_hAftermathCommandListContext, (void*)markerID, 0));
+            // For example, if we are on frame 625, markerMapIndex = 625 % 4 = 1...
+            // The first marker for the frame will have markerID = 1 * 10000 + 0 + 1 = 10001.
+            // The 15th marker for the frame will have markerID = 1 * 10000 + 14 + 1 = 10015.
+            // On the next frame, 626, markerMapIndex = 626 % 4 = 2.
+            // The first marker for this frame will have markerID = 2 * 10000 + 0 + 1 = 20001.
+            // The 15th marker for the frame will have markerID = 2 * 10000 + 14 + 1 = 20015.
+            // So with this scheme, we can safely have up to 10000 markers per frame, and can guarantee a unique markerID for each one.
+            // There are many ways to generate and track markers and unique marker identifiers!
+        }
+        else
+        {
+            AFTERMATH_CHECK_ERROR(GFSDK_Aftermath_SetEventMarker(m_hAftermathCommandListContext, (void*)markerData.c_str(), (unsigned int)markerData.size() + 1));
+        }
+    };
+    // clear the marker map for the current frame before writing any markers
+    m_markerMap[m_frameCounter % GpuCrashTracker::c_markerFrameHistory].clear();
+
+    // A helper that prepends the frame number to a string
+    auto createMarkerStringForFrame = [this](const char* markerString) {
+        std::stringstream ss;
+        ss << "Frame " << m_frameCounter << ": " << markerString;
+        return ss.str();
     };
 #endif
 
@@ -458,17 +524,18 @@ void D3D12HelloNsightAftermath::PopulateCommandList()
     const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
 #if defined(USE_NSIGHT_AFTERMATH)
     // Inject a marker in the command list before clearing the render target.
-    setAftermathEventMarker("Clear Render Target");
+    // Second argument appManagedMarker=false means that Aftermath will internally copy the marker data
+    setAftermathEventMarker(createMarkerStringForFrame("Clear Render Target"), false);
 #endif
     m_commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
     m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     m_commandList->IASetVertexBuffers(0, 1, &m_vertexBufferView);
 #if defined(USE_NSIGHT_AFTERMATH)
     // Inject a marker in the command list before the draw call.
-    setAftermathEventMarker("Draw Triangle");
+    // Second argument appManagedMarker=true means that Aftermath will not copy marker data and depend on the app to resolve the marker later
+    setAftermathEventMarker(createMarkerStringForFrame("Draw Triangle"), true);
 #endif
     m_commandList->DrawInstanced(3, 1, 0, 0);
-
     // Indicate that the back buffer will now be used to present.
     m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
 

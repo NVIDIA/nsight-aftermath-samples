@@ -1,6 +1,6 @@
 //*********************************************************
 //
-// Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+// Copyright (c) 2019-2022, NVIDIA CORPORATION. All rights reserved.
 // 
 //  Permission is hereby granted, free of charge, to any person obtaining a
 //  copy of this software and associated documentation files (the "Software"),
@@ -57,14 +57,9 @@ namespace std
         return to_hex_string(identifier.id[0]) + "-" + to_hex_string(identifier.id[1]);
     }
 
-    inline std::string to_string(const GFSDK_Aftermath_ShaderHash& hash)
+    inline std::string to_string(const GFSDK_Aftermath_ShaderBinaryHash& hash)
     {
         return to_hex_string(hash.hash);
-    }
-
-    inline std::string to_string(const GFSDK_Aftermath_ShaderInstructionsHash& hash)
-    {
-        return to_hex_string(hash.hash) + "-" + to_hex_string(hash.hash);
     }
 } // namespace std
 
@@ -82,14 +77,8 @@ inline bool operator<(const GFSDK_Aftermath_ShaderDebugInfoIdentifier& lhs, cons
     return lhs.id[0] < rhs.id[0];
 }
 
-// Helper for comparing GFSDK_Aftermath_ShaderHash.
-inline bool operator<(const GFSDK_Aftermath_ShaderHash& lhs, const GFSDK_Aftermath_ShaderHash& rhs)
-{
-    return lhs.hash < rhs.hash;
-}
-
-// Helper for comparing GFSDK_Aftermath_ShaderInstructionsHash.
-inline bool operator<(const GFSDK_Aftermath_ShaderInstructionsHash& lhs, const GFSDK_Aftermath_ShaderInstructionsHash& rhs)
+// Helper for comparing GFSDK_Aftermath_ShaderBinaryHash.
+inline bool operator<(const GFSDK_Aftermath_ShaderBinaryHash& lhs, const GFSDK_Aftermath_ShaderBinaryHash& rhs)
 {
     return lhs.hash < rhs.hash;
 }
@@ -124,7 +113,7 @@ public:
         switch (result)
         {
         case GFSDK_Aftermath_Result_FAIL_DriverVersionNotSupported:
-            return "Unsupported driver version - requires at least an NVIDIA R435 display driver.";
+            return "Unsupported driver version - requires an NVIDIA R495 display driver or newer.";
         case GFSDK_Aftermath_Result_FAIL_D3dDllInterceptionNotSupported:
             return "Aftermath is incompatible with D3D API interception, such as PIX or Nsight Graphics.";
         default:

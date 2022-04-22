@@ -1,6 +1,6 @@
 //*********************************************************
 //
-// Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+// Copyright (c) 2019-2022, NVIDIA CORPORATION. All rights reserved.
 //
 //  Permission is hereby granted, free of charge, to any person obtaining a
 //  copy of this software and associated documentation files (the "Software"),
@@ -56,7 +56,7 @@ private:
 
     static bool ReadFile(const char* filename, std::vector<uint8_t>& data);
 
-    // List of shader binaries by ShaderHash.
+    // List of shader binaries by ShaderBinaryHash.
     std::map<GFSDK_Aftermath_ShaderBinaryHash, std::vector<uint8_t>> m_shaderBinaries;
 
     // List of available shader binaries with source debug information by ShaderDebugName.

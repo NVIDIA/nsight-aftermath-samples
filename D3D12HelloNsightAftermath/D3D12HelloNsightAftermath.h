@@ -12,6 +12,7 @@
 #pragma once
 
 #include "DXSample.h"
+#include <array>
 
 // Enables the Nsight Aftermath code instrumentation for GPU crash dump creation.
 #define USE_NSIGHT_AFTERMATH 1
@@ -82,6 +83,10 @@ private:
     UINT64 m_fenceValue;
 
 #if defined(USE_NSIGHT_AFTERMATH)
+    // App-managed marker functionality
+    UINT64 m_frameCounter;
+    GpuCrashTracker::MarkerMap m_markerMap;
+
     // Nsight Aftermath instrumentation
     GFSDK_Aftermath_ContextHandle m_hAftermathCommandListContext;
     GpuCrashTracker m_gpuCrashTracker;

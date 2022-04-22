@@ -1,6 +1,6 @@
 //*********************************************************
 //
-// Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
+// Copyright (c) 2019-2022, NVIDIA CORPORATION. All rights reserved.
 //
 //  Permission is hereby granted, free of charge, to any person obtaining a
 //  copy of this software and associated documentation files (the "Software"),
@@ -37,7 +37,11 @@
 class GpuCrashTracker
 {
 public:
-    GpuCrashTracker();
+    // keep four frames worth of marker history
+    const static UINT c_markerFrameHistory = 4;
+    typedef std::array<std::map<uint64_t, std::string>, c_markerFrameHistory> MarkerMap;
+
+    GpuCrashTracker(const MarkerMap& markerMap);
     ~GpuCrashTracker();
 
     // Initialize the GPU crash dump tracker.
@@ -57,6 +61,9 @@ private:
 
     // Handler for GPU crash dump description callbacks.
     void OnDescription(PFN_GFSDK_Aftermath_AddGpuCrashDumpDescription addDescription);
+
+    // Handler for app-managed marker resolve callback
+    void OnResolveMarker(const void* pMarker, void** resolvedMarkerData, uint32_t* markerSize);
 
     //*********************************************************
     // Helpers for writing a GPU crash dump and debug information
@@ -83,12 +90,7 @@ private:
 
     // Handler for shader lookup callbacks.
     void OnShaderLookup(
-        const GFSDK_Aftermath_ShaderHash& shaderHash,
-        PFN_GFSDK_Aftermath_SetData setShaderBinary) const;
-
-    // Handler for shader instructions lookup callbacks.
-    void OnShaderInstructionsLookup(
-        const GFSDK_Aftermath_ShaderInstructionsHash& shaderInstructionsHash,
+        const GFSDK_Aftermath_ShaderBinaryHash& shaderHash,
         PFN_GFSDK_Aftermath_SetData setShaderBinary) const;
 
     // Handler for shader source debug info lookup callbacks.
@@ -117,6 +119,14 @@ private:
         PFN_GFSDK_Aftermath_AddGpuCrashDumpDescription addDescription,
         void* pUserData);
 
+    // App-managed marker resolve callback
+    static void ResolveMarkerCallback(
+        const void* pMarker,
+        void* pUserData,
+        void** resolvedMarkerData,
+        uint32_t* markerSize
+    );
+
     // Shader debug information lookup callback.
     static void ShaderDebugInfoLookupCallback(
         const GFSDK_Aftermath_ShaderDebugInfoIdentifier* pIdentifier,
@@ -125,13 +135,7 @@ private:
 
     // Shader lookup callback.
     static void ShaderLookupCallback(
-        const GFSDK_Aftermath_ShaderHash* pShaderHash,
-        PFN_GFSDK_Aftermath_SetData setShaderBinary,
-        void* pUserData);
-
-    // Shader instructions lookup callback.
-    static void ShaderInstructionsLookupCallback(
-        const GFSDK_Aftermath_ShaderInstructionsHash* pShaderInstructionsHash,
+        const GFSDK_Aftermath_ShaderBinaryHash* pShaderHash,
         PFN_GFSDK_Aftermath_SetData setShaderBinary,
         void* pUserData);
 
@@ -156,4 +160,7 @@ private:
 
     // The mock shader database.
     ShaderDatabase m_shaderDatabase;
+
+    // App-managed marker tracking
+    const MarkerMap& m_markerMap;
 };
