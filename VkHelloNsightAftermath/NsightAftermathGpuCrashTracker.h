@@ -83,12 +83,7 @@ private:
 
     // Handler for shader lookup callbacks.
     void OnShaderLookup(
-        const GFSDK_Aftermath_ShaderHash& shaderHash,
-        PFN_GFSDK_Aftermath_SetData setShaderBinary) const;
-
-    // Handler for shader instructions lookup callbacks.
-    void OnShaderInstructionsLookup(
-        const GFSDK_Aftermath_ShaderInstructionsHash& shaderInstructionsHash,
+        const GFSDK_Aftermath_ShaderBinaryHash& shaderHash,
         PFN_GFSDK_Aftermath_SetData setShaderBinary) const;
 
     // Handler for shader source debug info lookup callbacks.
@@ -125,13 +120,7 @@ private:
 
     // Shader lookup callback.
     static void ShaderLookupCallback(
-        const GFSDK_Aftermath_ShaderHash* pShaderHash,
-        PFN_GFSDK_Aftermath_SetData setShaderBinary,
-        void* pUserData);
-
-    // Shader instructions lookup callback.
-    static void ShaderInstructionsLookupCallback(
-        const GFSDK_Aftermath_ShaderInstructionsHash* pShaderInstructionsHash,
+        const GFSDK_Aftermath_ShaderBinaryHash* pShaderHash,
         PFN_GFSDK_Aftermath_SetData setShaderBinary,
         void* pUserData);
 

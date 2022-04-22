@@ -58,14 +58,9 @@ namespace std
         return to_hex_string(identifier.id[0]) + "-" + to_hex_string(identifier.id[1]);
     }
 
-    inline std::string to_string(const GFSDK_Aftermath_ShaderHash& hash)
+    inline std::string to_string(const GFSDK_Aftermath_ShaderBinaryHash& hash)
     {
         return to_hex_string(hash.hash);
-    }
-
-    inline std::string to_string(const GFSDK_Aftermath_ShaderInstructionsHash& hash)
-    {
-        return to_hex_string(hash.hash) + "-" + to_hex_string(hash.hash);
     }
 } // namespace std
 
@@ -83,14 +78,8 @@ inline bool operator<(const GFSDK_Aftermath_ShaderDebugInfoIdentifier& lhs, cons
     return lhs.id[0] < rhs.id[0];
 }
 
-// Helper for comparing GFSDK_Aftermath_ShaderHash.
-inline bool operator<(const GFSDK_Aftermath_ShaderHash& lhs, const GFSDK_Aftermath_ShaderHash& rhs)
-{
-    return lhs.hash < rhs.hash;
-}
-
-// Helper for comparing GFSDK_Aftermath_ShaderInstructionsHash.
-inline bool operator<(const GFSDK_Aftermath_ShaderInstructionsHash& lhs, const GFSDK_Aftermath_ShaderInstructionsHash& rhs)
+// Helper for comparing GFSDK_Aftermath_ShaderBinaryHash.
+inline bool operator<(const GFSDK_Aftermath_ShaderBinaryHash& lhs, const GFSDK_Aftermath_ShaderBinaryHash& rhs)
 {
     return lhs.hash < rhs.hash;
 }

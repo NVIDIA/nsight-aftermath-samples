@@ -76,7 +76,7 @@ void ShaderDatabase::AddShaderBinary(const char* shaderFilePath)
 
    // Create shader hash for the shader
     const GFSDK_Aftermath_SpirvCode shader{ data.data(), uint32_t(data.size()) };
-    GFSDK_Aftermath_ShaderHash shaderHash;
+    GFSDK_Aftermath_ShaderBinaryHash shaderHash;
     AFTERMATH_CHECK_ERROR(GFSDK_Aftermath_GetShaderHashSpirv(
         GFSDK_Aftermath_Version_API,
         &shader,
@@ -117,7 +117,7 @@ void ShaderDatabase::AddShaderBinaryWithDebugInfo(const char* strippedShaderFile
 }
 
 // Find a shader binary by shader hash.
-bool ShaderDatabase::FindShaderBinary(const GFSDK_Aftermath_ShaderHash& shaderHash, std::vector<uint8_t>& shader) const
+bool ShaderDatabase::FindShaderBinary(const GFSDK_Aftermath_ShaderBinaryHash& shaderHash, std::vector<uint8_t>& shader) const
 {
     // Find shader binary data for the shader hash
     auto i_shader = m_shaderBinaries.find(shaderHash);
