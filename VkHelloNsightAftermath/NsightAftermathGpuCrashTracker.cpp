@@ -68,6 +68,7 @@ void GpuCrashTracker::Initialize()
         GpuCrashDumpCallback,                                             // Register callback for GPU crash dumps.
         ShaderDebugInfoCallback,                                          // Register callback for shader debug information.
         CrashDumpDescriptionCallback,                                     // Register callback for GPU crash dump description.
+        nullptr,
         this));                                                           // Set the GpuCrashTracker object as user data for the above callbacks.
 
     m_initialized = true;
@@ -182,7 +183,6 @@ void GpuCrashTracker::WriteGpuCrashDumpToFile(const void* pGpuCrashDump, const u
         GFSDK_Aftermath_GpuCrashDumpFormatterFlags_NONE,
         ShaderDebugInfoLookupCallback,
         ShaderLookupCallback,
-        nullptr,
         ShaderSourceDebugInfoLookupCallback,
         this,
         &jsonSize));
@@ -249,7 +249,7 @@ void GpuCrashTracker::OnShaderDebugInfoLookup(
 // Aftermath will require access to both the stripped and the not stripped
 // shader binaries.
 void GpuCrashTracker::OnShaderLookup(
-    const GFSDK_Aftermath_ShaderHash& shaderHash,
+    const GFSDK_Aftermath_ShaderBinaryHash& shaderHash,
     PFN_GFSDK_Aftermath_SetData setShaderBinary) const
 {
     // Find shader binary data for the shader hash in the shader database.
@@ -327,7 +327,7 @@ void GpuCrashTracker::ShaderDebugInfoLookupCallback(
 
 // Static callback wrapper for OnShaderLookup
 void GpuCrashTracker::ShaderLookupCallback(
-    const GFSDK_Aftermath_ShaderHash* pShaderHash,
+    const GFSDK_Aftermath_ShaderBinaryHash* pShaderHash,
     PFN_GFSDK_Aftermath_SetData setShaderBinary,
     void* pUserData)
 {
