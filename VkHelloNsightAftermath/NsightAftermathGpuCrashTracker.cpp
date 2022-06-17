@@ -247,7 +247,7 @@ void GpuCrashTracker::WriteShaderDebugInformationToFile(
 
 // Handler for shader debug information lookup callbacks.
 // This is used by the JSON decoder for mapping shader instruction
-// addresses to DXIL lines or HLSl source lines.
+// addresses to SPIR-V IL lines or GLSL source lines.
 void GpuCrashTracker::OnShaderDebugInfoLookup(
     const GFSDK_Aftermath_ShaderDebugInfoIdentifier& identifier,
     PFN_GFSDK_Aftermath_SetData setShaderDebugInfo) const
@@ -267,8 +267,8 @@ void GpuCrashTracker::OnShaderDebugInfoLookup(
 
 // Handler for shader lookup callbacks.
 // This is used by the JSON decoder for mapping shader instruction
-// addresses to DXIL lines or HLSL source lines.
-// NOTE: If the application loads stripped shader binaries (-Qstrip_debug),
+// addresses to SPIR-V IL lines or GLSL source lines.
+// NOTE: If the application loads stripped shader binaries (ie; --strip-all in spirv-remap),
 // Aftermath will require access to both the stripped and the not stripped
 // shader binaries.
 void GpuCrashTracker::OnShaderLookup(
@@ -290,7 +290,7 @@ void GpuCrashTracker::OnShaderLookup(
 
 // Handler for shader source debug info lookup callbacks.
 // This is used by the JSON decoder for mapping shader instruction addresses to
-// HLSL source lines, if the shaders used by the application were compiled with
+// GLSL source lines, if the shaders used by the application were compiled with
 // separate debug info data files.
 void GpuCrashTracker::OnShaderSourceDebugInfoLookup(
     const GFSDK_Aftermath_ShaderDebugName& shaderDebugName,

@@ -413,6 +413,7 @@ struct Demo {
     bool validate;
     bool use_break;
     bool suppress_popups;
+    bool use_stripped_shaders;
 
     uint32_t current_buffer;
     uint32_t queue_family_count;
@@ -597,6 +598,7 @@ Demo::Demo()
       frameCount{0},
       validate{false},
       use_break{false},
+      use_stripped_shaders{false},
       suppress_popups{false},
       current_buffer{0},
       queue_family_count{0} 
@@ -978,7 +980,7 @@ void Demo::draw_build_cmd(vk::CommandBuffer commandBuffer) {
         size_t markerID = markerMapIndex * 10000 + currentFrameMarkerMap.size() + 1;
         // This value is the unique identifier we will pass to Aftermath and internally associate with the marker data in the map.
         currentFrameMarkerMap[markerID] = markerData;
-        commandBuffer.setCheckpointNV((void*)markerID);
+        commandBuffer.setCheckpointNV((const void*)markerID);
         // For example, if we are on frame 625, markerMapIndex = 625 % 4 = 1...
         // The first marker for the frame will have markerID = 1 * 10000 + 0 + 1 = 10001.
         // The 15th marker for the frame will have markerID = 1 * 10000 + 14 + 1 = 10015.
@@ -1085,6 +1087,10 @@ void Demo::init(int argc, char **argv) {
             i++;
             continue;
         }
+        if (strcmp(argv[i], "--stripped_shaders") == 0) {
+            use_stripped_shaders = true;
+            continue;
+        }
         if (strcmp(argv[i], "--break") == 0) {
             use_break = true;
             continue;
@@ -1109,8 +1115,8 @@ void Demo::init(int argc, char **argv) {
 
         std::stringstream usage;
         usage << "Usage:\n  " << APP_SHORT_NAME << "\t[--use_staging] [--validate]\n"
-              << "\t[--break] [--c <framecount>] [--suppress_popups]\n"
-              << "\t[--present_mode <present mode enum>]\n"
+              << "\t[--break] [--stripped_shaders] [--c <framecount>]\n"
+              << "\t[--suppress_popups] [--present_mode <present mode enum>]\n"
               << "\t<present_mode_enum>\n"
               << "\t\tVK_PRESENT_MODE_IMMEDIATE_KHR = " << VK_PRESENT_MODE_IMMEDIATE_KHR << "\n"
               << "\t\tVK_PRESENT_MODE_MAILBOX_KHR = " << VK_PRESENT_MODE_MAILBOX_KHR << "\n"
@@ -2073,7 +2079,7 @@ void Demo::prepare_framebuffers() {
 }
 
 vk::ShaderModule Demo::prepare_fs() {
-    std::vector<uint32_t> fragShaderBinary = LoadSpirvBinary("cube.frag.spirv");
+    std::vector<uint32_t> fragShaderBinary = LoadSpirvBinary(use_stripped_shaders ? "cube.frag.spirv" : "cube.frag.full.spirv");
 
     frag_shader_module = prepare_shader_module(fragShaderBinary.data(), fragShaderBinary.size() * sizeof(uint32_t));
 
@@ -2433,7 +2439,7 @@ void Demo::prepare_textures() {
 }
 
 vk::ShaderModule Demo::prepare_vs() {
-    std::vector<uint32_t> vertShaderBinary = LoadSpirvBinary("cube.vert.spirv");
+    std::vector<uint32_t> vertShaderBinary = LoadSpirvBinary(use_stripped_shaders ? "cube.vert.spirv" : "cube.vert.full.spirv");
     vert_shader_module = prepare_shader_module(vertShaderBinary.data(), vertShaderBinary.size() * sizeof(uint32_t));
 
     return vert_shader_module;
