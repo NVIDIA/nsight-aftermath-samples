@@ -63,7 +63,7 @@ private:
     void OnDescription(PFN_GFSDK_Aftermath_AddGpuCrashDumpDescription addDescription);
 
     // Handler for app-managed marker resolve callback
-    void OnResolveMarker(const void* pMarker, void** resolvedMarkerData, uint32_t* markerSize);
+    void OnResolveMarker(const void* pMarkerData, const uint32_t markerDataSize, void** ppResolvedMarkerData, uint32_t* pResolvedMarkerDataSize);
 
     //*********************************************************
     // Helpers for writing a GPU crash dump and debug information
@@ -121,10 +121,11 @@ private:
 
     // App-managed marker resolve callback
     static void ResolveMarkerCallback(
-        const void* pMarker,
+        const void* pMarkerData,
+        const uint32_t markerDataSize,
         void* pUserData,
-        void** resolvedMarkerData,
-        uint32_t* markerSize);
+        void** ppResolvedMarkerData,
+        uint32_t* pResolvedMarkerDataSize);
 
     // Shader debug information lookup callback.
     static void ShaderDebugInfoLookupCallback(

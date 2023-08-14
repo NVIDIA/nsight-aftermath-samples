@@ -127,8 +127,8 @@ endif()
 
 if(GLSLANG_INSTALL_DIR)
     message(STATUS "Using GLSLANG_INSTALL_DIR to look for glslangValidator")
-    find_program(GLSLANG_VALIDATOR names glslangValidator HINTS "${GLSLANG_INSTALL_DIR}/bin")
-    find_program(SPIRV_REMAP names spirv-remap HINTS "${GLSLANG_INSTALL_DIR}/bin")
+    find_program(GLSLANG_VALIDATOR NAMES glslangValidator HINTS "${GLSLANG_INSTALL_DIR}/bin")
+    find_program(SPIRV_REMAP NAMES spirv-remap HINTS "${GLSLANG_INSTALL_DIR}/bin")
 endif()
 
 if(UNIX) # i.e. Linux

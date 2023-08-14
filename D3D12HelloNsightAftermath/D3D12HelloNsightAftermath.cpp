@@ -105,9 +105,9 @@ void D3D12HelloNsightAftermath::LoadPipeline()
         //
         //   Using event markers should be considered carefully as they can
         //   cause considerable CPU overhead when used in high frequency code
-        //   paths. Therefore, the event marker features is only available if
-        //   the Nsight Aftermath GPU Crash Dump Monitor is running on the
-        //   system. No Aftermath configuration needs to be made in the
+        //   paths. Therefore, on R495 to R530 drivers, the event marker feature is
+        //   only available if the Nsight Aftermath GPU Crash Dump Monitor is running
+        //   on the system. No Aftermath configuration needs to be made in the
         //   Monitor. It serves only as a dongle to ensure Aftermath event
         //   markers do not impact application performance on end user systems.
         //
@@ -119,8 +119,14 @@ void D3D12HelloNsightAftermath::LoadPipeline()
         // * CallStackCapturing - this will include call stack and module information for
         //   the draw call, compute dispatch, or resource copy nearest to the crash.
         //
-        //   Using this option should be considered carefully. Enabling call stack
-        //   capturing will cause very high CPU overhead.
+        //   Enabling this feature will cause very high CPU overhead during command list
+        //   recording. Due to the inherent overhead, call stack capturing should only
+        //   be used for debugging purposes on development or QA systems and should not be
+        //   enabled in applications shipped to customers. Therefore, on R495+ drivers,
+        //   the call stack capturing feature is only available if the Nsight Aftermath GPU
+        //   Crash Dump Monitor is running on the system. No Aftermath configuration needs
+        //   to be made in the Monitor. It serves only as a dongle to ensure Aftermath call
+        //   stack capturing does not impact application performance on end user systems.
         //
         // * GenerateShaderDebugInfo - this instructs the shader compiler to
         //   generate debug information (line tables) for all shaders. Using this option
@@ -129,7 +135,7 @@ void D3D12HelloNsightAftermath::LoadPipeline()
         //   information callbacks.
         //
         const uint32_t aftermathFlags =
-            GFSDK_Aftermath_FeatureFlags_EnableMarkers |             // Enable event marker tracking. Only effective in combination with the Nsight Aftermath Crash Dump Monitor.
+            GFSDK_Aftermath_FeatureFlags_EnableMarkers |             // Enable event marker tracking.
             GFSDK_Aftermath_FeatureFlags_EnableResourceTracking |    // Enable tracking of resources.
             GFSDK_Aftermath_FeatureFlags_CallStackCapturing |        // Capture call stacks for all draw calls, compute dispatches, and resource copies.
             GFSDK_Aftermath_FeatureFlags_GenerateShaderDebugInfo;    // Generate debug information for shaders.
