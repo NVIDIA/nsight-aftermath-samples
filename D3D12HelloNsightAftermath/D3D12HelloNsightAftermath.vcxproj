@@ -148,6 +148,8 @@
     <FxCompile Include="VertexShader.hlsl">
       <ShaderType>Vertex</ShaderType>
       <EntryPointName>VSMain</EntryPointName>
+	  <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">-Qembed_debug %(AdditionalOptions)</AdditionalOptions>
+	  <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">-Qembed_debug %(AdditionalOptions)</AdditionalOptions>
     </FxCompile>
     <FxCompile Include="PixelShader.hlsl">
       <ShaderType>Pixel</ShaderType>
@@ -159,8 +161,6 @@
   <ItemGroup>
     <None Include="Shader.hlsli">
       <ExcludedFromBuild>true</ExcludedFromBuild>
-	  <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">-Qembed_debug %(AdditionalOptions)</AdditionalOptions>
-	  <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">-Qembed_debug %(AdditionalOptions)</AdditionalOptions>
     </None>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
