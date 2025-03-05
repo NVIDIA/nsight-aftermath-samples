@@ -127,8 +127,8 @@ endif()
 
 if(GLSLANG_INSTALL_DIR)
     message(STATUS "Using GLSLANG_INSTALL_DIR to look for glslangValidator")
-    find_program(GLSLANG_VALIDATOR NAMES glslangValidator HINTS "${GLSLANG_INSTALL_DIR}/bin")
-    find_program(SPIRV_REMAP NAMES spirv-remap HINTS "${GLSLANG_INSTALL_DIR}/bin")
+    find_program(GLSLANG_VALIDATOR NAMES glslangValidator HINTS "${GLSLANG_INSTALL_DIR}/bin" "$ENV{VULKAN_SDK}/bin" "$ENV{VULKAN_SDK}/Bin")
+    find_program(SPIRV_REMAP NAMES spirv-remap HINTS "${GLSLANG_INSTALL_DIR}/bin" "$ENV{VULKAN_SDK}/bin" "$ENV{VULKAN_SDK}/Bin")
 endif()
 
 if(UNIX) # i.e. Linux
@@ -153,7 +153,7 @@ if(UNIX) # i.e. Linux
 endif()
 
 if(WIN32)
-    add_definitions(-DVK_USE_PLATFORM_WIN32_KHR -DWIN32_LEAN_AND_MEAN)
+    add_definitions(-DVK_USE_PLATFORM_WIN32_KHR -DWIN32_LEAN_AND_MEAN -DNOMINMAX)
     if(NOT MSVC_VERSION LESS 1900)
         # Enable control flow guard
         message(STATUS "Building VkHelloNsightAftermath with control flow guard")

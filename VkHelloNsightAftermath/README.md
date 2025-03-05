@@ -7,20 +7,20 @@ collection and decoding into a Vulkan application.
 
 On Windows
 
-* Windows 10 Version 1809 (October 2018 Update) or newer
+* [Windows SDK 10.0.22621.755 (October 2022 Update) or newer](https://developer.microsoft.com/en-US/windows/downloads/windows-10-sdk)
 * [CMake 3.13 or newer](https://cmake.org/download)
 * [Vulkan-SDK (1.2.135 or newer)](https://vulkan.lunarg.com/sdk/home)
-* [Nsight Aftermath SDK 2020.1 or newer](https://developer.nvidia.com/nsight-aftermath)
-* [NVIDIA R445 display driver or newer](https://www.nvidia.com/Download/index.aspx)
-* [Visual Studio 2017 or newer](https://www.visualstudio.com)
+* [Nsight Aftermath SDK 2023.2 or newer](https://developer.nvidia.com/nsight-aftermath)
+* [NVIDIA R550 display driver or newer](https://www.nvidia.com/Download/index.aspx)
+* [Visual Studio 2022 or newer](https://www.visualstudio.com)
 
 On Linux
 
 * [CMake 3.5 or newer](https://cmake.org/download)
 * [Vulkan-SDK (1.2.135 or newer)](https://vulkan.lunarg.com/sdk/home)
-* [Nsight Aftermath SDK 2020.2 or newer](https://developer.nvidia.com/nsight-aftermath)
-* [NVIDIA R455 display driver or newer](https://www.nvidia.com/Download/index.aspx)
-* Officially tested on Ubuntu 16.04 and above
+* [Nsight Aftermath SDK 2023.2 or newer](https://developer.nvidia.com/nsight-aftermath)
+* [NVIDIA R550 display driver or newer](https://www.nvidia.com/Download/index.aspx)
+* Officially tested on Ubuntu 22.04 and above
 
 ## Source Organization
 
@@ -53,9 +53,10 @@ On Windows
   `NSIGHT_AFTERMATH_SDK` environment variable to the directory containing the
   files.
 * Run CMake to generate your build files (for example,
-  `cmake -G "Visual Studio 15 2017 Win64" -S . -B .\Built`).
+  `cmake -G "Visual Studio 17 2022" -A x64 -S . -B .\Built`).
 * Build the VkHelloNsightAftermath target from the generated
-  Visual Studio solution (`Built\VkHelloNsightAftermath.sln`).
+  Visual Studio solution (`Built\VkHelloNsightAftermath.sln`)
+  or use CMake build command `cmake --build .\Built --config Release`.
 
 On Linux
 

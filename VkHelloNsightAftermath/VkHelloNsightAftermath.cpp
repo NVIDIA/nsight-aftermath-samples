@@ -40,7 +40,7 @@
 
 #define VULKAN_HPP_NO_SMART_HANDLE
 #define VULKAN_HPP_NO_EXCEPTIONS
-#define VULKAN_HPP_TYPESAFE_CONVERSION
+#define VULKAN_HPP_TYPESAFE_CONVERSION 1
 #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
 #define VULKAN_HPP_DISABLE_IMPLICIT_RESULT_VALUE_CAST
 #include <vulkan/vulkan.hpp>
@@ -329,7 +329,11 @@ struct Demo {
     bool use_xlib;
     bool separate_present_queue;
 
+#if VK_HEADER_VERSION < 301
     vk::DynamicLoader dl;
+#else 
+    vk::detail::DynamicLoader dl;
+#endif
     vk::Instance inst;
     vk::PhysicalDevice gpu;
     vk::Device device;

@@ -5,11 +5,10 @@ collection and decoding into a D3D12 application.
 
 ## Requirements
 
-* Windows 10 Version 1809 (October 2018 Update)
-* [Visual Studio 2017](https://www.visualstudio.com/)
-* [Windows 10 October 2018 Update SDK (17763)](https://developer.microsoft.com/en-US/windows/downloads/windows-10-sdk)
-* [Nsight Aftermath SDK](https://developer.nvidia.com/nsight-aftermath)
-* [NVIDIA R440 driver (or newer)](https://www.nvidia.com/Download/index.aspx?lang=en-us)
+* [Visual Studio 2022](https://www.visualstudio.com/)
+* [Windows SDK 10.0.22621.755 (October 2022 Update) or newer](https://developer.microsoft.com/en-US/windows/downloads/windows-10-sdk)
+* [Nsight Aftermath SDK 2023.2 or newer](https://developer.nvidia.com/nsight-aftermath)
+* [NVIDIA R550 driver (or newer)](https://www.nvidia.com/Download/index.aspx?lang=en-us)
 
 ## Source Organization
 
