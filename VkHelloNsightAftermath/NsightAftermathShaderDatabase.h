@@ -43,6 +43,9 @@ public:
     ShaderDatabase();
     ~ShaderDatabase();
 
+    // Initialize the shader database
+    void Initialize(bool applicationUsesStrippedShaders);
+
     // Find a shader bytecode binary by shader hash.
     bool FindShaderBinary(const GFSDK_Aftermath_ShaderBinaryHash& shaderHash, std::vector<uint8_t>& shader) const;
 

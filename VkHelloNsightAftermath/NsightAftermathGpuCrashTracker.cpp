@@ -52,8 +52,11 @@ GpuCrashTracker::~GpuCrashTracker()
 }
 
 // Initialize the GPU Crash Dump Tracker
-void GpuCrashTracker::Initialize()
+void GpuCrashTracker::Initialize(bool applicationUsesStrippedShaders)
 {
+    // Initialize the shader database with the application's shader configuration
+    m_shaderDatabase.Initialize(applicationUsesStrippedShaders);
+
     // Enable GPU crash dumps and set up the callbacks for crash dump notifications,
     // shader debug information notifications, and providing additional crash
     // dump description data.Only the crash dump callback is mandatory. The other two

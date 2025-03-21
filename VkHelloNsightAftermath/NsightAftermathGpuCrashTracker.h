@@ -45,7 +45,7 @@ public:
     ~GpuCrashTracker();
 
     // Initialize the GPU crash dump tracker.
-    void Initialize();
+    void Initialize(bool applicationUsesStrippedShaders);
 
 private:
 

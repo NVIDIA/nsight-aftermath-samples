@@ -35,17 +35,44 @@ ShaderDatabase::ShaderDatabase()
     : m_shaderBinaries()
     , m_shaderBinariesWithDebugInfo()
 {
-    // Add shader binaries to database
-    AddShaderBinary("cube.vert.spirv");
-    AddShaderBinary("cube.frag.spirv");
-
-    // Add the not stripped shader binaries to the database, too.
-    AddShaderBinaryWithDebugInfo("cube.vert.spirv", "cube.vert.full.spirv");
-    AddShaderBinaryWithDebugInfo("cube.frag.spirv", "cube.frag.full.spirv");
 }
 
 ShaderDatabase::~ShaderDatabase()
 {
+}
+
+// Initialize the shader database with application shader configuration
+void ShaderDatabase::Initialize(bool applicationUsesStrippedShaders)
+{
+    // Clear any existing data
+    m_shaderBinaries.clear();
+    m_shaderBinariesWithDebugInfo.clear();
+
+    if (applicationUsesStrippedShaders)
+    {
+        // If the application passes shaders that were stripped of debug information
+        // to the Vulkan API, both the stripped and the not stripped shader binaries need
+        // to be registered here to allow them to be correlated when decoding a GPU
+        // crash dump.
+
+        // Add the shader binaries to the database
+        AddShaderBinary("cube.vert.spirv");
+        AddShaderBinary("cube.frag.spirv");
+
+        // Add the not stripped shader binaries and the names of the corresponding
+        // stripped shader binaries to the database.
+        AddShaderBinaryWithDebugInfo("cube.vert.spirv", "cube.vert.full.spirv");
+        AddShaderBinaryWithDebugInfo("cube.frag.spirv", "cube.frag.full.spirv");
+    }
+    else
+    {
+        // If the application passes shaders with debug information to the Vulkan API,
+        // only those shader binaries need to be registered with the database to allow
+        // them to be correlated when decoding a GPU crash dump.
+
+        AddShaderBinary("cube.vert.full.spirv");
+        AddShaderBinary("cube.frag.full.spirv");
+    }
 }
 
 bool ShaderDatabase::ReadFile(const char* filename, std::vector<uint8_t>& data)

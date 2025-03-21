@@ -1580,7 +1580,7 @@ void Demo::init_vk_swapchain() {
 #if defined(USE_NSIGHT_AFTERMATH)
     // Enable Nsight Aftermath GPU crash dump creation.
     // This needs to be done before the Vulkan device is created.
-    gpuCrashTracker.Initialize();
+    gpuCrashTracker.Initialize(use_stripped_shaders);
 #endif
 
     create_device();
