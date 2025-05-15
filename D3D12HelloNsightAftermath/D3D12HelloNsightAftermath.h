@@ -17,7 +17,7 @@
 // Enables the Nsight Aftermath code instrumentation for GPU crash dump creation.
 #define USE_NSIGHT_AFTERMATH 1
 
-#if defined(USE_NSIGHT_AFTERMATH)
+#if USE_NSIGHT_AFTERMATH
 #include "NsightAftermathGpuCrashTracker.h"
 #endif
 
@@ -82,7 +82,7 @@ private:
     ComPtr<ID3D12Fence> m_fence;
     UINT64 m_fenceValue;
 
-#if defined(USE_NSIGHT_AFTERMATH)
+#if USE_NSIGHT_AFTERMATH
     // App-managed marker functionality
     UINT64 m_frameCounter;
     GpuCrashTracker::MarkerMap m_markerMap;

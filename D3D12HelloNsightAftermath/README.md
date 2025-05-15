@@ -16,7 +16,8 @@ collection and decoding into a D3D12 application.
   * Main implementation file (D3D12 device creation, resource creation,
     rendering).
   * All additions for Nsight Aftermath code instrumentation are guarded with
-    `#if defined(USE_NSIGHT_AFTERMATH)`.
+    `#if USE_NSIGHT_AFTERMATH`. To disable this instrumentation, ensure
+    `USE_NSIGHT_AFTERMATH` is defined as `0` or is undefined.
 * `NsightAftermathGpuCrashTracker.cpp`
   * Implements a simple GPU crash dump tracker showing the use of the Nsight
     Aftermath API for collecting and decoding GPU crash dumps.
@@ -41,8 +42,7 @@ GPU crash dump analysis tool.
 
 ## Running the Sample
 
-* Run D3D12HelloNsightAftermath.exe, if necessary, copy `GFSDK_Aftermath_Lib.x64.dll`
-  to the working directory.
+* Run `D3D12HelloNsightAftermath.exe`.
 * The application will render a simple animated triangle and will hang/TDR after
   a few seconds.
 * A GPU crash dump file (D3D12HelloNsightAftermath-<PID>-<COUNT>.nv-gpudmp),

@@ -62,8 +62,9 @@ include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(VulkanHeaders
     DEFAULT_MSG
     VulkanHeaders_INCLUDE_DIR)
+
 find_package_handle_standard_args(VulkanRegistry
-    DEFAULT_MSG
-    VulkanRegistry_DIR)
+    REQUIRED_VARS VulkanRegistry_DIR
+    NAME_MISMATCHED)
 
 mark_as_advanced(VulkanHeaders_INCLUDE_DIR VulkanRegistry_DIR)

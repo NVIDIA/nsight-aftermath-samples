@@ -8,7 +8,7 @@ collection and decoding into a Vulkan application.
 On Windows
 
 * [Windows SDK 10.0.22621.755 (October 2022 Update) or newer](https://developer.microsoft.com/en-US/windows/downloads/windows-10-sdk)
-* [CMake 3.13 or newer](https://cmake.org/download)
+* [CMake 3.17 or newer](https://cmake.org/download)
 * [Vulkan-SDK (1.2.135 or newer)](https://vulkan.lunarg.com/sdk/home)
 * [Nsight Aftermath SDK 2023.2 or newer](https://developer.nvidia.com/nsight-aftermath)
 * [NVIDIA R550 display driver or newer](https://www.nvidia.com/Download/index.aspx)
@@ -16,7 +16,7 @@ On Windows
 
 On Linux
 
-* [CMake 3.5 or newer](https://cmake.org/download)
+* [CMake 3.17 or newer](https://cmake.org/download)
 * [Vulkan-SDK (1.2.135 or newer)](https://vulkan.lunarg.com/sdk/home)
 * [Nsight Aftermath SDK 2023.2 or newer](https://developer.nvidia.com/nsight-aftermath)
 * [NVIDIA R550 display driver or newer](https://www.nvidia.com/Download/index.aspx)
@@ -28,7 +28,8 @@ On Linux
   * Main implementation file (device creation, resource creation,
     rendering).
   * All additions for Nsight Aftermath code instrumentation are guarded with
-    `#if defined(USE_NSIGHT_AFTERMATH)`.
+    `#if USE_NSIGHT_AFTERMATH`. To disable this instrumentation, ensure
+    `USE_NSIGHT_AFTERMATH` is defined as `0` or is undefined.
 * `NsightAftermathGpuCrashTracker.cpp`
   * Implements a simple GPU crash dump tracker showing the use of the Nsight
     Aftermath API for collecting and decoding GPU crash dumps.
@@ -72,8 +73,7 @@ On Linux
 
 ## Running the Sample
 
-* On Windows, run `VkHelloNsightAftermath.exe`, if necessary, copy
-  `GFSDK_Aftermath_Lib.x64.dll` to the working directory.
+* On Windows, run `VkHelloNsightAftermath.exe`.
 * On Linux, run `./VkHelloNsightAftermath`.
 * The application will render a simple animated cube and will hang/TDR after
   a few seconds.

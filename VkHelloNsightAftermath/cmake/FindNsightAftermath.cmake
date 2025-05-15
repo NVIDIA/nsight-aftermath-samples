@@ -54,6 +54,14 @@ if(WIN32 OR UNIX)
         "$ENV{NSIGHT_AFTERMATH_SDK}/lib/x64"
         NO_SYSTEM_ENVIRONMENT_PATH
         )
+    if(WIN32)
+      find_file(NsightAftermath_DLL
+        NAMES GFSDK_Aftermath_Lib.x64.dll
+        PATHS
+          "$ENV{NSIGHT_AFTERMATH_SDK}/lib/x64"
+          NO_SYSTEM_ENVIRONMENT_PATH
+          )
+    endif()
   elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
     find_library(NsightAftermath_LIBRARY
       NAMES GFSDK_Aftermath_Lib.x86
@@ -61,6 +69,14 @@ if(WIN32 OR UNIX)
         "$ENV{NSIGHT_AFTERMATH_SDK}/lib/x86"
         NO_SYSTEM_ENVIRONMENT_PATH
         )
+    if(WIN32)
+      find_file(NsightAftermath_DLL
+        NAMES GFSDK_Aftermath_Lib.x86.dll
+        PATHS
+          "$ENV{NSIGHT_AFTERMATH_SDK}/lib/x86"
+          NO_SYSTEM_ENVIRONMENT_PATH
+          )
+    endif()
   endif()
 else()
     find_path(NsightAftermath_INCLUDE_DIR

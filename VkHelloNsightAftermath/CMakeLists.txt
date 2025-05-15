@@ -1,7 +1,7 @@
 # ~~~
 # Copyright (c) 2018 Valve Corporation
 # Copyright (c) 2018 LunarG, Inc.
-# Copyright (c) 2019-2020 NVIDIA Corporation
+# Copyright (c) 2019-2025 NVIDIA Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 # CMake project initialization ---------------------------------------------------------------------------------------------------
 # This section contains pre-project() initialization, and ends with the project() command.
 
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.17)
 
 project(VkHelloNsightAftermath)
 
@@ -287,6 +287,17 @@ else()
                    cube.vert.spirv
                    cube.frag.spirv)
     target_link_libraries(VkHelloNsightAftermath PRIVATE Vulkan::Vulkan NsightAftermath::NsightAftermath)
+    target_compile_options(VkHelloNsightAftermath PRIVATE -DVULKAN_HPP_DISABLE_IMPLICIT_RESULT_VALUE_CAST)
+
+    # Add post-build step to copy Nsight Aftermath DLL to the installation directory
+    add_custom_command(TARGET VkHelloNsightAftermath POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${NsightAftermath_DLL}"
+                $<TARGET_FILE_DIR:VkHelloNsightAftermath>
+        COMMENT "Copying Nsight Aftermath DLL to output directory")
+
+    # Also install the DLL to the installation directory
+    install(FILES "${NsightAftermath_DLL}" DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
 
 install(TARGETS VkHelloNsightAftermath RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

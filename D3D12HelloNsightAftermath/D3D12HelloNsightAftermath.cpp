@@ -12,7 +12,7 @@
 #include "stdafx.h"
 #include "D3D12HelloNsightAftermath.h"
 
-#if defined(USE_NSIGHT_AFTERMATH)
+#if USE_NSIGHT_AFTERMATH
 #include "NsightAftermathHelpers.h"
 #endif
 
@@ -28,7 +28,7 @@ D3D12HelloNsightAftermath::D3D12HelloNsightAftermath(UINT width, UINT height, st
     , m_scissorRect(0, 0, static_cast<LONG>(width), static_cast<LONG>(height))
     , m_rtvDescriptorSize(0)
     , m_constantBufferData{}
-#if defined(USE_NSIGHT_AFTERMATH)
+#if USE_NSIGHT_AFTERMATH
     , m_hAftermathCommandListContext(nullptr)
     , m_gpuCrashTracker(m_markerMap)
     , m_frameCounter(0)
@@ -51,7 +51,7 @@ void D3D12HelloNsightAftermath::LoadPipeline()
     // tools using an injection library) is not compatible with Nsight Aftermath!
     // If Aftermath detects that any of these tools are present it will fail
     // initialization.
-#if defined(_DEBUG) && !defined(USE_NSIGHT_AFTERMATH)
+#if defined(_DEBUG) && !USE_NSIGHT_AFTERMATH
     // Enable the debug layer (requires the Graphics Tools "optional feature").
     // NOTE: Enabling the debug layer after device creation will invalidate the active device.
     {
@@ -85,7 +85,7 @@ void D3D12HelloNsightAftermath::LoadPipeline()
         ComPtr<IDXGIAdapter1> hardwareAdapter;
         GetHardwareAdapter(factory.Get(), &hardwareAdapter);
 
-#if defined(USE_NSIGHT_AFTERMATH)
+#if USE_NSIGHT_AFTERMATH
         // Enable Nsight Aftermath GPU crash dump creation.
         // This needs to be done before the D3D device is created.
         m_gpuCrashTracker.Initialize();
@@ -97,7 +97,7 @@ void D3D12HelloNsightAftermath::LoadPipeline()
             IID_PPV_ARGS(&m_device)
             ));
 
-#if defined(USE_NSIGHT_AFTERMATH)
+#if USE_NSIGHT_AFTERMATH
         // Initialize Nsight Aftermath for this device.
         //
         // * EnableMarkers - this will include information about the Aftermath
@@ -286,7 +286,7 @@ void D3D12HelloNsightAftermath::LoadAssets()
     // Create the command list.
     ThrowIfFailed(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_commandAllocator.Get(), m_pipelineState.Get(), IID_PPV_ARGS(&m_commandList)));
 
-#if defined(USE_NSIGHT_AFTERMATH)
+#if USE_NSIGHT_AFTERMATH
     // Create an Nsight Aftermath context handle for setting Aftermath event markers in this command list.
     AFTERMATH_CHECK_ERROR(GFSDK_Aftermath_DX12_CreateContextHandle(m_commandList.Get(), &m_hAftermathCommandListContext));
 #endif
@@ -399,7 +399,7 @@ void D3D12HelloNsightAftermath::OnRender()
     m_commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
 
     // Present the frame.
-#if defined(USE_NSIGHT_AFTERMATH)
+#if USE_NSIGHT_AFTERMATH
     HRESULT hr = m_swapChain->Present(1, 0);
     if (FAILED(hr))
     {
@@ -481,7 +481,7 @@ void D3D12HelloNsightAftermath::PopulateCommandList()
     CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart(), m_frameIndex, m_rtvDescriptorSize);
     m_commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
 
-#if defined(USE_NSIGHT_AFTERMATH)
+#if USE_NSIGHT_AFTERMATH
     // A helper for setting Aftermath event markers.
     // For maximum CPU performance, use GFSDK_Aftermath_SetEventMarker() with dataSize=0.
     // This instructs Aftermath not to allocate and copy off memory internally, relying on
@@ -528,7 +528,7 @@ void D3D12HelloNsightAftermath::PopulateCommandList()
 
     // Record commands.
     const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
-#if defined(USE_NSIGHT_AFTERMATH)
+#if USE_NSIGHT_AFTERMATH
     // Inject a marker in the command list before clearing the render target.
     // Second argument appManagedMarker=false means that Aftermath will internally copy the marker data
     setAftermathEventMarker(createMarkerStringForFrame("Clear Render Target"), false);
@@ -536,7 +536,7 @@ void D3D12HelloNsightAftermath::PopulateCommandList()
     m_commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
     m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     m_commandList->IASetVertexBuffers(0, 1, &m_vertexBufferView);
-#if defined(USE_NSIGHT_AFTERMATH)
+#if USE_NSIGHT_AFTERMATH
     // Inject a marker in the command list before the draw call.
     // Second argument appManagedMarker=true means that Aftermath will not copy marker data and depend on the app to resolve the marker later
     setAftermathEventMarker(createMarkerStringForFrame("Draw Triangle"), true);

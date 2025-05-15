@@ -42,15 +42,14 @@
 #define VULKAN_HPP_NO_EXCEPTIONS
 #define VULKAN_HPP_TYPESAFE_CONVERSION 1
 #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
-#define VULKAN_HPP_DISABLE_IMPLICIT_RESULT_VALUE_CAST
 #include <vulkan/vulkan.hpp>
 
 #include "linmath.h"
 
- // Enables the Nsight Aftermath code instrumentation for GPU crash dump creation.
+// Enables the Nsight Aftermath code instrumentation for GPU crash dump creation.
 #define USE_NSIGHT_AFTERMATH 1
 
-#if defined(USE_NSIGHT_AFTERMATH)
+#if USE_NSIGHT_AFTERMATH
 #if VK_HEADER_VERSION < 135
 #error Minimum requirement for the Aftermath application integration is the Vulkan 1.2.135 SDK
 #endif
@@ -331,7 +330,7 @@ struct Demo {
 
 #if VK_HEADER_VERSION < 301
     vk::DynamicLoader dl;
-#else 
+#else
     vk::detail::DynamicLoader dl;
 #endif
     vk::Instance inst;
@@ -421,7 +420,7 @@ struct Demo {
     uint32_t current_buffer;
     uint32_t queue_family_count;
 
-#if defined(USE_NSIGHT_AFTERMATH)
+#if USE_NSIGHT_AFTERMATH
     // GPU crash dump tracker using Nsight Aftermath instrumentation
     GpuCrashTracker::MarkerMap markerMap;
     GpuCrashTracker gpuCrashTracker;
@@ -601,11 +600,11 @@ Demo::Demo()
       frameCount{0},
       validate{false},
       use_break{false},
-      use_stripped_shaders{false},
       suppress_popups{false},
+      use_stripped_shaders{false},
       current_buffer{0},
-      queue_family_count{0} 
-#if defined(USE_NSIGHT_AFTERMATH)
+      queue_family_count{0}
+#if USE_NSIGHT_AFTERMATH
       , markerMap{},
       gpuCrashTracker{ markerMap },
       frameNumber{ 0 }
@@ -745,7 +744,7 @@ void Demo::create_device() {
     queues[0].setQueueCount(1);
     queues[0].setPQueuePriorities(priorities);
 
-#if defined(USE_NSIGHT_AFTERMATH)
+#if USE_NSIGHT_AFTERMATH
     auto deviceCreateInfoChain = vk::StructureChain<vk::DeviceCreateInfo, vk::DeviceDiagnosticsConfigCreateInfoNV>();
     auto& deviceInfo = deviceCreateInfoChain.get<vk::DeviceCreateInfo>();
 
@@ -771,7 +770,8 @@ void Demo::create_device() {
     vk::DeviceDiagnosticsConfigFlagsNV aftermathFlags =
         vk::DeviceDiagnosticsConfigFlagBitsNV::eEnableResourceTracking |
         vk::DeviceDiagnosticsConfigFlagBitsNV::eEnableAutomaticCheckpoints |
-        vk::DeviceDiagnosticsConfigFlagBitsNV::eEnableShaderDebugInfo;
+        vk::DeviceDiagnosticsConfigFlagBitsNV::eEnableShaderDebugInfo |
+        vk::DeviceDiagnosticsConfigFlagBitsNV::eEnableShaderErrorReporting;
     auto& aftermathInfo = deviceCreateInfoChain.get<vk::DeviceDiagnosticsConfigCreateInfoNV>();
     aftermathInfo.setFlags(aftermathFlags);
 #else
@@ -811,7 +811,7 @@ void Demo::draw() {
 
     // Ensure no more than FRAME_LAG renderings are outstanding
     result = device.waitForFences(1, &fences[frame_index], VK_TRUE, UINT64_MAX);
-#if defined(USE_NSIGHT_AFTERMATH)
+#if USE_NSIGHT_AFTERMATH
     if (result == vk::Result::eErrorDeviceLost)
     {
         // Device lost notification is asynchronous to the NVIDIA display
@@ -923,7 +923,7 @@ void Demo::draw() {
     result = present_queue.presentKHR(&presentInfo);
     frame_index += 1;
     frame_index %= FRAME_LAG;
-#if defined(USE_NSIGHT_AFTERMATH)
+#if USE_NSIGHT_AFTERMATH
     frameNumber++;
 #endif
     if (result == vk::Result::eErrorOutOfDateKHR) {
@@ -1391,8 +1391,25 @@ void Demo::init_vk() {
         std::unique_ptr<vk::PhysicalDevice[]> physical_devices(new vk::PhysicalDevice[gpu_count]);
         result = inst.enumeratePhysicalDevices(&gpu_count, physical_devices.get());
         VERIFY(result == vk::Result::eSuccess);
-        /* For cube demo we just grab the first physical device */
-        gpu = physical_devices[0];
+
+        // Find an NVIDIA GPU (vendor ID 0x10DE)
+        bool found_nvidia = false;
+        for (uint32_t i = 0; i < gpu_count; i++) {
+            vk::PhysicalDeviceProperties device_props;
+            physical_devices[i].getProperties(&device_props);
+
+            if (device_props.vendorID == 0x10DE) { // NVIDIA vendor ID
+                gpu = physical_devices[i];
+                found_nvidia = true;
+                break;
+            }
+        }
+
+        if (!found_nvidia) {
+            ERR_EXIT(
+                "Could not find an NVIDIA GPU. Nsight Aftermath requires an NVIDIA GPU.\n",
+                "NVIDIA GPU Required");
+        }
     } else {
         ERR_EXIT(
             "vkEnumeratePhysicalDevices reported zero accessible devices.\n\n"
@@ -1404,7 +1421,7 @@ void Demo::init_vk() {
     /* Look for device extensions */
     uint32_t device_extension_count = 0;
     vk::Bool32 swapchainExtFound = VK_FALSE;
-#if USE_NSIGHT_AFTERMATH 
+#if USE_NSIGHT_AFTERMATH
     vk::Bool32 diagnosticCheckPointsExtFound = VK_FALSE;
     vk::Bool32 diagnosticsConfigExtFound = VK_FALSE;
 #endif
@@ -1425,7 +1442,7 @@ void Demo::init_vk() {
                 swapchainExtFound = 1;
                 extension_names[enabled_extension_count++] = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
             }
-#if USE_NSIGHT_AFTERMATH 
+#if USE_NSIGHT_AFTERMATH
             if (!strcmp(VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_EXTENSION_NAME, device_extensions[i].extensionName)) {
                 diagnosticCheckPointsExtFound = 1;
                 extension_names[enabled_extension_count++] = VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_EXTENSION_NAME;
@@ -1577,7 +1594,7 @@ void Demo::init_vk_swapchain() {
     present_queue_family_index = presentQueueFamilyIndex;
     separate_present_queue = (graphics_queue_family_index != present_queue_family_index);
 
-#if defined(USE_NSIGHT_AFTERMATH)
+#if USE_NSIGHT_AFTERMATH
     // Enable Nsight Aftermath GPU crash dump creation.
     // This needs to be done before the Vulkan device is created.
     gpuCrashTracker.Initialize(use_stripped_shaders);
@@ -2283,8 +2300,7 @@ void Demo::prepare_texture_buffer(const char *filename, texture_object *tex_obj)
     result = device.bindBufferMemory(tex_obj->buffer, tex_obj->mem, 0);
     VERIFY(result == vk::Result::eSuccess);
 
-    vk::SubresourceLayout layout;
-    memset(&layout, 0, sizeof(layout));
+    vk::SubresourceLayout layout{};
     layout.rowPitch = tex_width * 4;
     auto data = device.mapMemory(tex_obj->mem, 0, tex_obj->mem_alloc.allocationSize);
     VERIFY(data.result == vk::Result::eSuccess);

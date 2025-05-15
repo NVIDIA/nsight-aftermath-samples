@@ -42,13 +42,14 @@ std::wstring DXSample::GetAssetFullPath(LPCWSTR assetName)
 _Use_decl_annotations_
 void DXSample::GetHardwareAdapter(IDXGIFactory2* pFactory, IDXGIAdapter1** ppAdapter)
 {
-    ComPtr<IDXGIAdapter1> adapter;
+    ComPtr<IDXGIAdapter1> nvidia_adapter;
+    ComPtr<IDXGIAdapter1> current_adapter;
     *ppAdapter = nullptr;
 
-    for (UINT adapterIndex = 0; DXGI_ERROR_NOT_FOUND != pFactory->EnumAdapters1(adapterIndex, &adapter); ++adapterIndex)
+    for (UINT adapterIndex = 0; DXGI_ERROR_NOT_FOUND != pFactory->EnumAdapters1(adapterIndex, &current_adapter); ++adapterIndex)
     {
         DXGI_ADAPTER_DESC1 desc;
-        adapter->GetDesc1(&desc);
+        current_adapter->GetDesc1(&desc);
 
         if (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)
         {
@@ -57,15 +58,27 @@ void DXSample::GetHardwareAdapter(IDXGIFactory2* pFactory, IDXGIAdapter1** ppAda
             continue;
         }
 
-        // Check to see if the adapter supports Direct3D 12, but don't create the
-        // actual device yet.
-        if (SUCCEEDED(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, _uuidof(ID3D12Device), nullptr)))
+        // Check if it's an NVIDIA GPU (Vendor ID 0x10DE)
+        if (desc.VendorId == 0x10DE)
         {
-            break;
+            // Check to see if this NVIDIA adapter supports Direct3D 12
+            if (SUCCEEDED(D3D12CreateDevice(current_adapter.Get(), D3D_FEATURE_LEVEL_11_0, _uuidof(ID3D12Device), nullptr)))
+            {
+                nvidia_adapter = current_adapter; // Found a suitable NVIDIA adapter
+                break; // Prefer this NVIDIA adapter, so stop searching
+            }
         }
     }
 
-    *ppAdapter = adapter.Detach();
+    if (nvidia_adapter) // If a suitable NVIDIA adapter was found
+    {
+        *ppAdapter = nvidia_adapter.Detach();
+    }
+    else // No NVIDIA GPU supporting Direct3D 12 was found
+    {
+        MessageBox(nullptr, L"Could not find an NVIDIA GPU that supports Direct3D 12. Nsight Aftermath requires a compatible NVIDIA GPU.", L"NVIDIA GPU Required", MB_OK | MB_ICONERROR);
+        exit(1); // Exit the application
+    }
 }
 
 // Helper function for setting the window's title text.
@@ -81,7 +94,7 @@ void DXSample::ParseCommandLineArgs(WCHAR* argv[], int argc)
 {
     for (int i = 1; i < argc; ++i)
     {
-        if (_wcsnicmp(argv[i], L"-warp", wcslen(argv[i])) == 0 || 
+        if (_wcsnicmp(argv[i], L"-warp", wcslen(argv[i])) == 0 ||
             _wcsnicmp(argv[i], L"/warp", wcslen(argv[i])) == 0)
         {
             m_useWarpDevice = true;
