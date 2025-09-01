@@ -1,6 +1,6 @@
 //*********************************************************
 //
-// Copyright (c) 2019-2022, NVIDIA CORPORATION. All rights reserved.
+// Copyright (c) 2019-2025, NVIDIA CORPORATION. All rights reserved.
 //
 //  Permission is hereby granted, free of charge, to any person obtaining a
 //  copy of this software and associated documentation files (the "Software"),
@@ -63,7 +63,7 @@ private:
     void OnDescription(PFN_GFSDK_Aftermath_AddGpuCrashDumpDescription addDescription);
 
     // Handler for app-managed marker resolve callback
-    void OnResolveMarker(const void* pMarkerData, const uint32_t markerDataSize, void** ppResolvedMarkerData, uint32_t* pResolvedMarkerDataSize);
+    void OnResolveMarker(const void* pMarkerData, const uint32_t markerDataSize, PFN_GFSDK_Aftermath_ResolveMarker resolveMarker);
 
     //*********************************************************
     // Helpers for writing a GPU crash dump and debug information
@@ -124,8 +124,7 @@ private:
         const void* pMarkerData,
         const uint32_t markerDataSize,
         void* pUserData,
-        void** ppResolvedMarkerData,
-        uint32_t* pResolvedMarkerDataSize
+        PFN_GFSDK_Aftermath_ResolveMarker resolveMarker
     );
 
     // Shader debug information lookup callback.

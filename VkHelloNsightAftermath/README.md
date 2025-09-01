@@ -10,7 +10,7 @@ On Windows
 * [Windows SDK 10.0.22621.755 (October 2022 Update) or newer](https://developer.microsoft.com/en-US/windows/downloads/windows-10-sdk)
 * [CMake 3.17 or newer](https://cmake.org/download)
 * [Vulkan-SDK (1.2.135 or newer)](https://vulkan.lunarg.com/sdk/home)
-* [Nsight Aftermath SDK 2023.2 or newer](https://developer.nvidia.com/nsight-aftermath)
+* [Nsight Aftermath SDK 2025.5 or newer](https://developer.nvidia.com/nsight-aftermath)
 * [NVIDIA R550 display driver or newer](https://www.nvidia.com/Download/index.aspx)
 * [Visual Studio 2022 or newer](https://www.visualstudio.com)
 

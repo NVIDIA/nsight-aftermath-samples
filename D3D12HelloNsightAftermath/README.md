@@ -7,7 +7,7 @@ collection and decoding into a D3D12 application.
 
 * [Visual Studio 2022](https://www.visualstudio.com/)
 * [Windows SDK 10.0.22621.755 (October 2022 Update) or newer](https://developer.microsoft.com/en-US/windows/downloads/windows-10-sdk)
-* [Nsight Aftermath SDK 2023.2 or newer](https://developer.nvidia.com/nsight-aftermath)
+* [Nsight Aftermath SDK 2025.5 or newer](https://developer.nvidia.com/nsight-aftermath)
 * [NVIDIA R550 driver (or newer)](https://www.nvidia.com/Download/index.aspx?lang=en-us)
 
 ## Source Organization
