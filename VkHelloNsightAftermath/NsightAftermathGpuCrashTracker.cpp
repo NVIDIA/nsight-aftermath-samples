@@ -69,7 +69,7 @@ void GpuCrashTracker::Initialize(bool applicationUsesStrippedShaders)
     AFTERMATH_CHECK_ERROR(GFSDK_Aftermath_EnableGpuCrashDumps(
         GFSDK_Aftermath_Version_API,
         GFSDK_Aftermath_GpuCrashDumpWatchedApiFlags_Vulkan,
-        GFSDK_Aftermath_GpuCrashDumpFeatureFlags_DeferDebugInfoCallbacks, // Let the Nsight Aftermath library cache shader debug information.
+        GFSDK_Aftermath_GpuCrashDumpFeatureFlags_Default, // Let the Nsight Aftermath library cache shader debug information.
         GpuCrashDumpCallback,                                             // Register callback for GPU crash dumps.
         ShaderDebugInfoCallback,                                          // Register callback for shader debug information.
         CrashDumpDescriptionCallback,                                     // Register callback for GPU crash dump description.
@@ -318,6 +318,7 @@ void GpuCrashTracker::GpuCrashDumpCallback(
     const uint32_t gpuCrashDumpSize,
     void* pUserData)
 {
+    fprintf(stdout, "Calling gpu crash dump callback!\n");
     GpuCrashTracker* pGpuCrashTracker = reinterpret_cast<GpuCrashTracker*>(pUserData);
     pGpuCrashTracker->OnCrashDump(pGpuCrashDump, gpuCrashDumpSize);
 }

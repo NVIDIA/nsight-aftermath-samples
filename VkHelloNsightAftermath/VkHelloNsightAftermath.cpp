@@ -248,8 +248,10 @@ struct Demo {
     void init_connection();
     void init_vk();
     void init_vk_swapchain();
+    void init_vk_headless();
     void prepare();
     void prepare_buffers();
+    void prepare_buffers_headless();
     void prepare_cube_data_buffers();
     void prepare_depth();
     void prepare_descriptor_layout();
@@ -259,8 +261,11 @@ struct Demo {
     vk::ShaderModule prepare_shader_module(const uint32_t *, size_t);
     vk::ShaderModule prepare_vs();
     vk::ShaderModule prepare_fs();
-    void prepare_pipeline();
+    vk::ShaderModule prepare_cs();
+    void prepare_graphics_pipeline();
+    void prepare_compute_pipeline();
     void prepare_render_pass();
+    void prepare_render_pass_headless();
     void prepare_texture_image(const char *, texture_object *, vk::ImageTiling, vk::ImageUsageFlags, vk::MemoryPropertyFlags);
     void prepare_texture_buffer(const char *, texture_object *);
     void prepare_textures();
@@ -293,6 +298,7 @@ struct Demo {
     vk::Result create_display_surface();
     void run_display();
 #endif
+    void run_headless();
 
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
     HINSTANCE connection;         // hInstance - Windows Instance
@@ -389,9 +395,12 @@ struct Demo {
     vk::CommandBuffer cmd;  // Buffer for initialization commands
     vk::PipelineLayout pipeline_layout;
     vk::DescriptorSetLayout desc_layout;
+    vk::DescriptorSetLayout compute_desc_layout;
     vk::PipelineCache pipelineCache;
     vk::RenderPass render_pass;
     vk::Pipeline pipeline;
+    vk::Pipeline compute_pipeline;
+    vk::PipelineLayout compute_pipeline_layout;
 
     mat4x4 projection_matrix;
     mat4x4 view_matrix;
@@ -403,6 +412,7 @@ struct Demo {
 
     vk::ShaderModule vert_shader_module;
     vk::ShaderModule frag_shader_module;
+    vk::ShaderModule comp_shader_module;
 
     vk::DescriptorPool desc_pool;
     vk::DescriptorSet desc_set;
@@ -416,6 +426,7 @@ struct Demo {
     bool use_break;
     bool suppress_popups;
     bool use_stripped_shaders;
+    bool headless_mode;
 
     uint32_t current_buffer;
     uint32_t queue_family_count;
@@ -602,6 +613,7 @@ Demo::Demo()
       use_break{false},
       suppress_popups{false},
       use_stripped_shaders{false},
+      headless_mode{false},
       current_buffer{0},
       queue_family_count{0}
 #if USE_NSIGHT_AFTERMATH
@@ -681,10 +693,13 @@ void Demo::cleanup() {
     device.destroyDescriptorPool(desc_pool, nullptr);
 
     device.destroyPipeline(pipeline, nullptr);
+    device.destroyPipeline(compute_pipeline, nullptr);
     device.destroyPipelineCache(pipelineCache, nullptr);
     device.destroyRenderPass(render_pass, nullptr);
     device.destroyPipelineLayout(pipeline_layout, nullptr);
+    device.destroyPipelineLayout(compute_pipeline_layout, nullptr);
     device.destroyDescriptorSetLayout(desc_layout, nullptr);
+    device.destroyDescriptorSetLayout(compute_desc_layout, nullptr);
 
     for (uint32_t i = 0; i < texture_count; i++) {
         device.destroyImageView(textures[i].view, nullptr);
@@ -851,25 +866,27 @@ void Demo::draw() {
 
     device.resetFences(1, &fences[frame_index]);
 
-    do {
-        result =
-            device.acquireNextImageKHR(swapchain, UINT64_MAX, image_acquired_semaphores[frame_index], vk::Fence(), &current_buffer);
-        if (result == vk::Result::eErrorOutOfDateKHR) {
-            // demo->swapchain is out of date (e.g. the window was resized) and
-            // must be recreated:
-            resize();
-        } else if (result == vk::Result::eSuboptimalKHR) {
-            // swapchain is not as optimal as it could be, but the platform's
-            // presentation engine will still present the image correctly.
-            break;
-        } else if (result == vk::Result::eErrorSurfaceLostKHR) {
-            inst.destroySurfaceKHR(surface, nullptr);
-            create_surface();
-            resize();
-        } else {
-            VERIFY(result == vk::Result::eSuccess);
-        }
-    } while (result != vk::Result::eSuccess);
+    if (!headless_mode){
+        do {
+            result =
+                device.acquireNextImageKHR(swapchain, UINT64_MAX, image_acquired_semaphores[frame_index], vk::Fence(), &current_buffer);
+            if (result == vk::Result::eErrorOutOfDateKHR) {
+                // demo->swapchain is out of date (e.g. the window was resized) and
+                // must be recreated:
+                resize();
+            } else if (result == vk::Result::eSuboptimalKHR) {
+                // swapchain is not as optimal as it could be, but the platform's
+                // presentation engine will still present the image correctly.
+                break;
+            } else if (result == vk::Result::eErrorSurfaceLostKHR) {
+                inst.destroySurfaceKHR(surface, nullptr);
+                create_surface();
+                resize();
+            } else {
+                VERIFY(result == vk::Result::eSuccess);
+            }
+        } while (result != vk::Result::eSuccess);
+    }
 
     update_data_buffer();
 
@@ -880,65 +897,79 @@ void Demo::draw() {
     // engine has fully released ownership to the application, and it is
     // okay to render to the image.
     vk::PipelineStageFlags const pipe_stage_flags = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-    auto const submit_info = vk::SubmitInfo()
+    auto submit_info = vk::SubmitInfo()
                                  .setPWaitDstStageMask(&pipe_stage_flags)
-                                 .setWaitSemaphoreCount(1)
-                                 .setPWaitSemaphores(&image_acquired_semaphores[frame_index])
                                  .setCommandBufferCount(1)
                                  .setPCommandBuffers(&swapchain_image_resources[current_buffer].cmd)
                                  .setSignalSemaphoreCount(1)
                                  .setPSignalSemaphores(&draw_complete_semaphores[frame_index]);
 
+    if (!headless_mode){
+        submit_info
+            .setWaitSemaphoreCount(1)
+            .setPWaitSemaphores(&image_acquired_semaphores[frame_index]);
+    }
+
     result = graphics_queue.submit(1, &submit_info, fences[frame_index]);
     VERIFY(result == vk::Result::eSuccess);
 
-    if (separate_present_queue) {
-        // If we are using separate queues, change image ownership to the
-        // present queue before presenting, waiting for the draw complete
-        // semaphore and signalling the ownership released semaphore when
-        // finished
-        auto const present_submit_info = vk::SubmitInfo()
-                                             .setPWaitDstStageMask(&pipe_stage_flags)
-                                             .setWaitSemaphoreCount(1)
-                                             .setPWaitSemaphores(&draw_complete_semaphores[frame_index])
-                                             .setCommandBufferCount(1)
-                                             .setPCommandBuffers(&swapchain_image_resources[current_buffer].graphics_to_present_cmd)
-                                             .setSignalSemaphoreCount(1)
-                                             .setPSignalSemaphores(&image_ownership_semaphores[frame_index]);
-
-        result = present_queue.submit(1, &present_submit_info, vk::Fence());
-        VERIFY(result == vk::Result::eSuccess);
+    if (headless_mode){
+        frame_index += 1;
+        frame_index %= FRAME_LAG;
+    #if USE_NSIGHT_AFTERMATH
+        frameNumber++;
+    #endif
     }
+    else{
 
-    // If we are using separate queues we have to wait for image ownership,
-    // otherwise wait for draw complete
-    auto const presentInfo = vk::PresentInfoKHR()
-                                 .setWaitSemaphoreCount(1)
-                                 .setPWaitSemaphores(separate_present_queue ? &image_ownership_semaphores[frame_index]
-                                                                            : &draw_complete_semaphores[frame_index])
-                                 .setSwapchainCount(1)
-                                 .setPSwapchains(&swapchain)
-                                 .setPImageIndices(&current_buffer);
+        if (separate_present_queue) {
+            // If we are using separate queues, change image ownership to the
+            // present queue before presenting, waiting for the draw complete
+            // semaphore and signalling the ownership released semaphore when
+            // finished
+            auto const present_submit_info = vk::SubmitInfo()
+                                                .setPWaitDstStageMask(&pipe_stage_flags)
+                                                .setWaitSemaphoreCount(1)
+                                                .setPWaitSemaphores(&draw_complete_semaphores[frame_index])
+                                                .setCommandBufferCount(1)
+                                                .setPCommandBuffers(&swapchain_image_resources[current_buffer].graphics_to_present_cmd)
+                                                .setSignalSemaphoreCount(1)
+                                                .setPSignalSemaphores(&image_ownership_semaphores[frame_index]);
 
-    result = present_queue.presentKHR(&presentInfo);
-    frame_index += 1;
-    frame_index %= FRAME_LAG;
-#if USE_NSIGHT_AFTERMATH
-    frameNumber++;
-#endif
-    if (result == vk::Result::eErrorOutOfDateKHR) {
-        // swapchain is out of date (e.g. the window was resized) and
-        // must be recreated:
-        resize();
-    } else if (result == vk::Result::eSuboptimalKHR) {
-        // swapchain is not as optimal as it could be, but the platform's
-        // presentation engine will still present the image correctly.
-    } else if (result == vk::Result::eErrorSurfaceLostKHR) {
-        inst.destroySurfaceKHR(surface, nullptr);
-        create_surface();
-        resize();
-    } else {
-        VERIFY(result == vk::Result::eSuccess);
+            result = present_queue.submit(1, &present_submit_info, vk::Fence());
+            VERIFY(result == vk::Result::eSuccess);
+        }
+
+        // If we are using separate queues we have to wait for image ownership,
+        // otherwise wait for draw complete
+        auto const presentInfo = vk::PresentInfoKHR()
+                                    .setWaitSemaphoreCount(1)
+                                    .setPWaitSemaphores(separate_present_queue ? &image_ownership_semaphores[frame_index]
+                                                                                : &draw_complete_semaphores[frame_index])
+                                    .setSwapchainCount(1)
+                                    .setPSwapchains(&swapchain)
+                                    .setPImageIndices(&current_buffer);
+
+        result = present_queue.presentKHR(&presentInfo);
+        frame_index += 1;
+        frame_index %= FRAME_LAG;
+        #if USE_NSIGHT_AFTERMATH
+            frameNumber++;
+        #endif
+        if (result == vk::Result::eErrorOutOfDateKHR) {
+            // swapchain is out of date (e.g. the window was resized) and
+            // must be recreated:
+            resize();
+        } else if (result == vk::Result::eSuboptimalKHR) {
+            // swapchain is not as optimal as it could be, but the platform's
+            // presentation engine will still present the image correctly.
+        } else if (result == vk::Result::eErrorSurfaceLostKHR) {
+            inst.destroySurfaceKHR(surface, nullptr);
+            create_surface();
+            resize();
+        } else {
+            VERIFY(result == vk::Result::eSuccess);
+        }
     }
 }
 
@@ -948,27 +979,49 @@ void Demo::draw_build_cmd(vk::CommandBuffer commandBuffer) {
     vk::ClearValue const clearValues[2] = {vk::ClearColorValue(std::array<float, 4>({{0.2f, 0.2f, 0.2f, 0.2f}})),
                                            vk::ClearDepthStencilValue(1.0f, 0u)};
 
+    uint32_t image_index = headless_mode ? 0 : current_buffer;
     auto const passInfo = vk::RenderPassBeginInfo()
-                              .setRenderPass(render_pass)
-                              .setFramebuffer(swapchain_image_resources[current_buffer].framebuffer)
-                              .setRenderArea(vk::Rect2D(vk::Offset2D(0, 0), vk::Extent2D((uint32_t)width, (uint32_t)height)))
-                              .setClearValueCount(2)
-                              .setPClearValues(clearValues);
+            .setRenderPass(render_pass)
+            .setFramebuffer(swapchain_image_resources[image_index].framebuffer)
+            .setRenderArea(vk::Rect2D(vk::Offset2D(0, 0), vk::Extent2D((uint32_t)width, (uint32_t)height)))
+            .setClearValueCount(2)
+            .setPClearValues(clearValues);
 
     auto result = commandBuffer.begin(&commandInfo);
     VERIFY(result == vk::Result::eSuccess);
 
-    commandBuffer.beginRenderPass(&passInfo, vk::SubpassContents::eInline);
-    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
-    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout, 0, 1,
-                                     &swapchain_image_resources[current_buffer].descriptor_set, 0, nullptr);
+    // Compute dispatch before rendering
+    commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, compute_pipeline);
+    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, compute_pipeline_layout, 0, 1,
+                                     &swapchain_image_resources[image_index].descriptor_set, 0, nullptr);
+    
+    // Dispatch compute shader (16x16 workgroups for a typical texture size)
+    uint32_t dispatch_x = (width + 15) / 16;
+    uint32_t dispatch_y = (height + 15) / 16;
+    commandBuffer.dispatch(dispatch_x, dispatch_y, 1);
+    
+    // Memory barrier between compute and graphics
+    vk::MemoryBarrier memoryBarrier = vk::MemoryBarrier()
+        .setSrcAccessMask(vk::AccessFlagBits::eShaderWrite)
+        .setDstAccessMask(vk::AccessFlagBits::eShaderRead);
+    
+    // commandBuffer.pipelineBarrier(
+    //     vk::PipelineStageFlagBits::eComputeShader,
+    //     vk::PipelineStageFlagBits::eFragmentShader,
+    //     vk::DependencyFlags(), 1, &memoryBarrier, 0, nullptr, 0, nullptr);
 
-    auto const viewport =
-        vk::Viewport().setWidth((float)width).setHeight((float)height).setMinDepth((float)0.0f).setMaxDepth((float)1.0f);
-    commandBuffer.setViewport(0, 1, &viewport);
+    // commandBuffer.beginRenderPass(&passInfo, vk::SubpassContents::eInline);
+    // commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
+    // commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout, 0, 1,
+    //                                  &swapchain_image_resources[image_index].descriptor_set, 0, nullptr);
 
-    vk::Rect2D const scissor(vk::Offset2D(0, 0), vk::Extent2D(width, height));
-    commandBuffer.setScissor(0, 1, &scissor);
+    // auto const viewport =
+    //     vk::Viewport().setWidth((float)width).setHeight((float)height).setMinDepth((float)0.0f).setMaxDepth((float)1.0f);
+    // commandBuffer.setViewport(0, 1, &viewport);
+
+    // vk::Rect2D const scissor(vk::Offset2D(0, 0), vk::Extent2D(width, height));
+    // commandBuffer.setScissor(0, 1, &scissor);
+
 #if USE_NSIGHT_AFTERMATH
     // A helper for setting a checkpoint marker
     auto setCheckpointMarker = [this](vk::CommandBuffer commandBuffer, const std::string& markerData)
@@ -1005,10 +1058,10 @@ void Demo::draw_build_cmd(vk::CommandBuffer commandBuffer) {
     // Insert a device diagnostic checkpoint into the command stream
     setCheckpointMarker(commandBuffer, createMarkerStringForFrame("Draw Cube"));
 #endif
-    commandBuffer.draw(12 * 3, 1, 0, 0);
+    // commandBuffer.draw(12 * 3, 1, 0, 0);
     // Note that ending the renderpass changes the image's layout from
     // COLOR_ATTACHMENT_OPTIMAL to PRESENT_SRC_KHR
-    commandBuffer.endRenderPass();
+    // commandBuffer.endRenderPass();
 
     if (separate_present_queue) {
         // We have to transfer ownership from the graphics queue family to
@@ -1115,11 +1168,15 @@ void Demo::init(int argc, char **argv) {
             suppress_popups = true;
             continue;
         }
+        if (strcmp(argv[i], "--headless") == 0) {
+            headless_mode = true;
+            continue;
+        }
 
         std::stringstream usage;
         usage << "Usage:\n  " << APP_SHORT_NAME << "\t[--use_staging] [--validate]\n"
               << "\t[--break] [--stripped_shaders] [--c <framecount>]\n"
-              << "\t[--suppress_popups] [--present_mode <present mode enum>]\n"
+              << "\t[--suppress_popups] [--headless] [--present_mode <present mode enum>]\n"
               << "\t<present_mode_enum>\n"
               << "\t\tVK_PRESENT_MODE_IMMEDIATE_KHR = " << VK_PRESENT_MODE_IMMEDIATE_KHR << "\n"
               << "\t\tVK_PRESENT_MODE_MAILBOX_KHR = " << VK_PRESENT_MODE_MAILBOX_KHR << "\n"
@@ -1135,7 +1192,7 @@ void Demo::init(int argc, char **argv) {
         exit(1);
     }
 
-    if (!use_xlib) {
+    if (!use_xlib && !headless_mode) {
         init_connection();
     }
 
@@ -1442,6 +1499,57 @@ void Demo::init_vk() {
                 swapchainExtFound = 1;
                 extension_names[enabled_extension_count++] = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
             }
+            if (!strcmp(VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME, device_extensions[i].extensionName)) {
+                extension_names[enabled_extension_count++] = VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME;
+             }
+            if (!strcmp(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, device_extensions[i].extensionName)) {
+                extension_names[enabled_extension_count++] = VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME;
+            }
+            if (!strcmp(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME, device_extensions[i].extensionName)) {
+                extension_names[enabled_extension_count++] = VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME;
+            }
+            if (!strcmp(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME, device_extensions[i].extensionName)) {
+               extension_names[enabled_extension_count++] = VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME;
+            }
+            if (!strcmp(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME, device_extensions[i].extensionName)) {
+               extension_names[enabled_extension_count++] = VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME;
+            }
+            if (!strcmp(VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME, device_extensions[i].extensionName)) {
+               extension_names[enabled_extension_count++] = VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME;
+            }
+            if (!strcmp(VK_KHR_RAY_QUERY_EXTENSION_NAME, device_extensions[i].extensionName)) {
+               extension_names[enabled_extension_count++] = VK_KHR_RAY_QUERY_EXTENSION_NAME;
+            }
+            if (!strcmp(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME, device_extensions[i].extensionName)) {
+              extension_names[enabled_extension_count++] = VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME;
+            }
+            if (!strcmp(VK_KHR_SPIRV_1_4_EXTENSION_NAME, device_extensions[i].extensionName)) {
+               extension_names[enabled_extension_count++] = VK_KHR_SPIRV_1_4_EXTENSION_NAME;
+            }
+            if (!strcmp(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME, device_extensions[i].extensionName)) {
+               extension_names[enabled_extension_count++] = VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME;
+            }
+            if (!strcmp(VK_KHR_SHADER_ATOMIC_INT64_EXTENSION_NAME, device_extensions[i].extensionName)) {
+               extension_names[enabled_extension_count++] = VK_KHR_SHADER_ATOMIC_INT64_EXTENSION_NAME;
+            }
+            if (!strcmp(VK_KHR_SHADER_SUBGROUP_UNIFORM_CONTROL_FLOW_EXTENSION_NAME, device_extensions[i].extensionName)) {
+               extension_names[enabled_extension_count++] = VK_KHR_SHADER_SUBGROUP_UNIFORM_CONTROL_FLOW_EXTENSION_NAME;
+            }
+            if (!strcmp(VK_KHR_SHADER_MAXIMAL_RECONVERGENCE_EXTENSION_NAME, device_extensions[i].extensionName)) {
+               extension_names[enabled_extension_count++] = VK_KHR_SHADER_MAXIMAL_RECONVERGENCE_EXTENSION_NAME;
+            }
+            if (!strcmp(VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME, device_extensions[i].extensionName)) {
+               extension_names[enabled_extension_count++] = VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME;
+            }
+            if (!strcmp(VK_EXT_SUBGROUP_SIZE_CONTROL_EXTENSION_NAME, device_extensions[i].extensionName)) {
+               extension_names[enabled_extension_count++] = VK_EXT_SUBGROUP_SIZE_CONTROL_EXTENSION_NAME;
+            }
+            if (!strcmp(VK_KHR_SHADER_SUBGROUP_ROTATE_EXTENSION_NAME, device_extensions[i].extensionName)) {
+               extension_names[enabled_extension_count++] = VK_KHR_SHADER_SUBGROUP_ROTATE_EXTENSION_NAME;
+            }
+            if (!strcmp(VK_EXT_PIPELINE_ROBUSTNESS_EXTENSION_NAME, device_extensions[i].extensionName)) {
+               extension_names[enabled_extension_count++] = VK_EXT_PIPELINE_ROBUSTNESS_EXTENSION_NAME;
+            }
 #if USE_NSIGHT_AFTERMATH
             if (!strcmp(VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_EXTENSION_NAME, device_extensions[i].extensionName)) {
                 diagnosticCheckPointsExtFound = 1;
@@ -1660,6 +1768,68 @@ void Demo::init_vk_swapchain() {
     gpu.getMemoryProperties(&memory_properties);
 }
 
+void Demo::init_vk_headless() {
+    uint32_t graphicsQueueFamilyIndex = UINT32_MAX;
+    for (uint32_t i = 0; i < queue_family_count; i++) {
+        if (queue_props[i].queueFlags & vk::QueueFlagBits::eGraphics) {
+            if (graphicsQueueFamilyIndex == UINT32_MAX) {
+                graphicsQueueFamilyIndex = i;
+            }
+        }
+    }
+
+    // Generate error if could not find both a graphics and a present queue
+    if (graphicsQueueFamilyIndex == UINT32_MAX) {
+        ERR_EXIT("Could not find graphics queue\n", "Headless Swapchain Initialization Failure");
+    }
+
+    graphics_queue_family_index = graphicsQueueFamilyIndex;
+    separate_present_queue = false;
+
+#if USE_NSIGHT_AFTERMATH
+    // Enable Nsight Aftermath GPU crash dump creation.
+    // This needs to be done before the Vulkan device is created.
+    gpuCrashTracker.Initialize(use_stripped_shaders);
+#endif
+
+    create_device();
+
+    device.getQueue(graphics_queue_family_index, 0, &graphics_queue);
+
+    format = vk::Format::eB8G8R8A8Unorm;
+    color_space = vk::ColorSpaceKHR::eSrgbNonlinear;
+
+    quit = false;
+    curFrame = 0;
+
+    // Create semaphores to synchronize acquiring presentable buffers before
+    // rendering and waiting for drawing to be complete before presenting
+    auto const semaphoreCreateInfo = vk::SemaphoreCreateInfo();
+
+    // Create fences that we can use to throttle if we get too far
+    // ahead of the image presents
+    auto const fence_ci = vk::FenceCreateInfo().setFlags(vk::FenceCreateFlagBits::eSignaled);
+    for (uint32_t i = 0; i < FRAME_LAG; i++) {
+        auto result = device.createFence(&fence_ci, nullptr, &fences[i]);
+        VERIFY(result == vk::Result::eSuccess);
+
+        result = device.createSemaphore(&semaphoreCreateInfo, nullptr, &image_acquired_semaphores[i]);
+        VERIFY(result == vk::Result::eSuccess);
+
+        result = device.createSemaphore(&semaphoreCreateInfo, nullptr, &draw_complete_semaphores[i]);
+        VERIFY(result == vk::Result::eSuccess);
+
+        if (separate_present_queue) {
+            result = device.createSemaphore(&semaphoreCreateInfo, nullptr, &image_ownership_semaphores[i]);
+            VERIFY(result == vk::Result::eSuccess);
+        }
+    }
+    frame_index = 0;
+
+    // Get Memory information and properties
+    gpu.getMemoryProperties(&memory_properties);
+}
+
 void Demo::prepare() {
     auto const cmd_pool_info = vk::CommandPoolCreateInfo().setQueueFamilyIndex(graphics_queue_family_index);
     auto result = device.createCommandPool(&cmd_pool_info, nullptr, &cmd_pool);
@@ -1678,14 +1848,40 @@ void Demo::prepare() {
     result = this->cmd.begin(&cmd_buf_info);
     VERIFY(result == vk::Result::eSuccess);
 
-    prepare_buffers();
+    if (!headless_mode){
+        prepare_buffers();
+    }
+    else{
+        prepare_buffers_headless();
+    }
+
     prepare_depth();
     prepare_textures();
     prepare_cube_data_buffers();
 
     prepare_descriptor_layout();
-    prepare_render_pass();
-    prepare_pipeline();
+    
+    if (!headless_mode){
+        prepare_render_pass();
+    } 
+    else {
+        prepare_render_pass_headless();
+        // Create framebuffer for headless mode after render pass is created
+        vk::ImageView attachments[2] = {swapchain_image_resources[0].view, depth.view};
+        auto const fb_info = vk::FramebufferCreateInfo()
+            .setRenderPass(render_pass)
+            .setAttachmentCount(2)
+            .setPAttachments(attachments)
+            .setWidth((uint32_t)width)
+            .setHeight((uint32_t)height)
+            .setLayers(1);
+        
+        auto result = device.createFramebuffer(&fb_info, nullptr, &swapchain_image_resources[0].framebuffer);
+        VERIFY(result == vk::Result::eSuccess);
+    }
+
+    prepare_graphics_pipeline();
+    prepare_compute_pipeline();
 
     for (uint32_t i = 0; i < swapchainImageCount; ++i) {
         result = device.allocateCommandBuffers(&cmd, &swapchain_image_resources[i].cmd);
@@ -1901,6 +2097,48 @@ void Demo::prepare_buffers() {
     }
 }
 
+void Demo::prepare_buffers_headless() {
+    width = 500;
+    height = 500;
+    swapchainImageCount = 1;
+
+    swapchain_image_resources.reset(new SwapchainImageResources[swapchainImageCount]);
+
+    // Create offscreen color image
+    auto const image_create_info = vk::ImageCreateInfo()
+        .setImageType(vk::ImageType::e2D)
+        .setFormat(format)
+        .setExtent({(uint32_t)width, (uint32_t)height, 1})
+        .setMipLevels(1)
+        .setArrayLayers(1)
+        .setSamples(vk::SampleCountFlagBits::e1)
+        .setTiling(vk::ImageTiling::eOptimal)
+        .setUsage(vk::ImageUsageFlagBits::eColorAttachment)
+        .setSharingMode(vk::SharingMode::eExclusive)
+        .setInitialLayout(vk::ImageLayout::eUndefined);
+
+    auto result = device.createImage(&image_create_info, nullptr, &swapchain_image_resources[0].image);
+    VERIFY(result == vk::Result::eSuccess);
+
+    vk::MemoryRequirements mem_reqs;
+    device.getImageMemoryRequirements(swapchain_image_resources[0].image, &mem_reqs);
+
+    auto mem_alloc = vk::MemoryAllocateInfo().setAllocationSize(mem_reqs.size);
+    uint32_t type_index;
+    memory_type_from_properties(mem_reqs.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal, &type_index);
+    mem_alloc.setMemoryTypeIndex(type_index);
+
+    // Create image view
+    auto const color_image_view = vk::ImageViewCreateInfo()
+        .setImage(swapchain_image_resources[0].image)
+        .setViewType(vk::ImageViewType::e2D)
+        .setFormat(format)
+        .setSubresourceRange(vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
+
+    result = device.createImageView(&color_image_view, nullptr, &swapchain_image_resources[0].view);
+    VERIFY(result == vk::Result::eSuccess);
+}
+
 void Demo::prepare_cube_data_buffers() {
     mat4x4 VP;
     mat4x4_mul(VP, projection_matrix, view_matrix);
@@ -1928,7 +2166,7 @@ void Demo::prepare_cube_data_buffers() {
     data.offset[2] = 0;
     data.offset[3] = 0;
 
-    auto const buf_info = vk::BufferCreateInfo().setSize(sizeof(data)).setUsage(vk::BufferUsageFlagBits::eUniformBuffer);
+    auto const buf_info = vk::BufferCreateInfo().setSize(sizeof(data)).setUsage(vk::BufferUsageFlagBits::eStorageBuffer);
 
     for (unsigned int i = 0; i < swapchainImageCount; i++) {
         auto result = device.createBuffer(&buf_info, nullptr, &swapchain_image_resources[i].uniform_buffer);
@@ -2006,33 +2244,42 @@ void Demo::prepare_depth() {
 }
 
 void Demo::prepare_descriptor_layout() {
-    vk::DescriptorSetLayoutBinding const layout_bindings[2] = {vk::DescriptorSetLayoutBinding()
-                                                                   .setBinding(0)
-                                                                   .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-                                                                   .setDescriptorCount(1)
-                                                                   .setStageFlags(vk::ShaderStageFlagBits::eVertex)
-                                                                   .setPImmutableSamplers(nullptr),
-                                                               vk::DescriptorSetLayoutBinding()
-                                                                   .setBinding(1)
-                                                                   .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-                                                                   .setDescriptorCount(texture_count)
-                                                                   .setStageFlags(vk::ShaderStageFlagBits::eFragment)
-                                                                   .setPImmutableSamplers(nullptr)};
+    // Graphics descriptor layout (original)
+    vk::DescriptorSetLayoutBinding const graphics_bindings[2] = {vk::DescriptorSetLayoutBinding()
+                                                                     .setBinding(0)
+                                                                     .setDescriptorType(vk::DescriptorType::eStorageBuffer)
+                                                                     .setDescriptorCount(1)
+                                                                     .setStageFlags(vk::ShaderStageFlagBits::eVertex)
+                                                                     .setPImmutableSamplers(nullptr),
+                                                                 vk::DescriptorSetLayoutBinding()
+                                                                     .setBinding(1)
+                                                                     .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                                                                     .setDescriptorCount(texture_count)
+                                                                     .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                                                                     .setPImmutableSamplers(nullptr)};
 
-    auto const descriptor_layout = vk::DescriptorSetLayoutCreateInfo().setBindingCount(2).setPBindings(layout_bindings);
-
-    auto result = device.createDescriptorSetLayout(&descriptor_layout, nullptr, &desc_layout);
+    auto const graphics_layout = vk::DescriptorSetLayoutCreateInfo().setBindingCount(2).setPBindings(graphics_bindings);
+    auto result = device.createDescriptorSetLayout(&graphics_layout, nullptr, &desc_layout);
     VERIFY(result == vk::Result::eSuccess);
 
+    // Graphics pipeline layout
     auto const pPipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo().setSetLayoutCount(1).setPSetLayouts(&desc_layout);
-
     result = device.createPipelineLayout(&pPipelineLayoutCreateInfo, nullptr, &pipeline_layout);
+    VERIFY(result == vk::Result::eSuccess);
+
+    auto const compute_layout = vk::DescriptorSetLayoutCreateInfo().setBindingCount(0);
+    result = device.createDescriptorSetLayout(&compute_layout, nullptr, &compute_desc_layout);
+    VERIFY(result == vk::Result::eSuccess);
+
+    // Compute pipeline layout
+    auto const computePipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo().setSetLayoutCount(1).setPSetLayouts(&compute_desc_layout);
+    result = device.createPipelineLayout(&computePipelineLayoutCreateInfo, nullptr, &compute_pipeline_layout);
     VERIFY(result == vk::Result::eSuccess);
 }
 
 void Demo::prepare_descriptor_pool() {
     vk::DescriptorPoolSize const poolSizes[2] = {
-        vk::DescriptorPoolSize().setType(vk::DescriptorType::eUniformBuffer).setDescriptorCount(swapchainImageCount),
+        vk::DescriptorPoolSize().setType(vk::DescriptorType::eStorageBuffer).setDescriptorCount(swapchainImageCount),
         vk::DescriptorPoolSize()
             .setType(vk::DescriptorType::eCombinedImageSampler)
             .setDescriptorCount(swapchainImageCount * texture_count)};
@@ -2042,10 +2289,25 @@ void Demo::prepare_descriptor_pool() {
 
     auto result = device.createDescriptorPool(&descriptor_pool, nullptr, &desc_pool);
     VERIFY(result == vk::Result::eSuccess);
+
+    // vk::DescriptorPoolSize const poolSizes[3] = {
+    //     vk::DescriptorPoolSize().setType(vk::DescriptorType::eStorageBuffer).setDescriptorCount(swapchainImageCount),
+    //     vk::DescriptorPoolSize()
+    //         .setType(vk::DescriptorType::eCombinedImageSampler)
+    //         .setDescriptorCount(swapchainImageCount * texture_count),
+    //     vk::DescriptorPoolSize()
+    //         .setType(vk::DescriptorType::eStorageImage)
+    //         .setDescriptorCount(swapchainImageCount * 2)};
+
+    // auto const descriptor_pool =
+    //     vk::DescriptorPoolCreateInfo().setMaxSets(swapchainImageCount * 2).setPoolSizeCount(3).setPPoolSizes(poolSizes);
+
+    // auto result = device.createDescriptorPool(&descriptor_pool, nullptr, &desc_pool);
+    // VERIFY(result == vk::Result::eSuccess);
 }
 
 void Demo::prepare_descriptor_set() {
-    auto const alloc_info =
+    auto const graphics_alloc_info =
         vk::DescriptorSetAllocateInfo().setDescriptorPool(desc_pool).setDescriptorSetCount(1).setPSetLayouts(&desc_layout);
 
     auto buffer_info = vk::DescriptorBufferInfo().setOffset(0).setRange(sizeof(struct vktexcube_vs_uniform));
@@ -2057,25 +2319,28 @@ void Demo::prepare_descriptor_set() {
         tex_descs[i].setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
     }
 
-    vk::WriteDescriptorSet writes[2];
+    // Graphics descriptor writes
+    vk::WriteDescriptorSet graphics_writes[2];
+    graphics_writes[0].setDstBinding(0);
+    graphics_writes[0].setDescriptorCount(1);
+    graphics_writes[0].setDescriptorType(vk::DescriptorType::eStorageBuffer);
+    graphics_writes[0].setPBufferInfo(&buffer_info);
 
-    writes[0].setDescriptorCount(1);
-    writes[0].setDescriptorType(vk::DescriptorType::eUniformBuffer);
-    writes[0].setPBufferInfo(&buffer_info);
-
-    writes[1].setDstBinding(1);
-    writes[1].setDescriptorCount(texture_count);
-    writes[1].setDescriptorType(vk::DescriptorType::eCombinedImageSampler);
-    writes[1].setPImageInfo(tex_descs);
+    graphics_writes[1].setDstBinding(1);
+    graphics_writes[1].setDescriptorCount(texture_count);
+    graphics_writes[1].setDescriptorType(vk::DescriptorType::eCombinedImageSampler);
+    graphics_writes[1].setPImageInfo(tex_descs);
 
     for (unsigned int i = 0; i < swapchainImageCount; i++) {
-        auto result = device.allocateDescriptorSets(&alloc_info, &swapchain_image_resources[i].descriptor_set);
+        // Allocate graphics descriptor set
+        auto result = device.allocateDescriptorSets(&graphics_alloc_info, &swapchain_image_resources[i].descriptor_set);
         VERIFY(result == vk::Result::eSuccess);
 
+        // Update graphics descriptors
         buffer_info.setBuffer(swapchain_image_resources[i].uniform_buffer);
-        writes[0].setDstSet(swapchain_image_resources[i].descriptor_set);
-        writes[1].setDstSet(swapchain_image_resources[i].descriptor_set);
-        device.updateDescriptorSets(2, writes, 0, nullptr);
+        graphics_writes[0].setDstSet(swapchain_image_resources[i].descriptor_set);
+        graphics_writes[1].setDstSet(swapchain_image_resources[i].descriptor_set);
+        device.updateDescriptorSets(2, graphics_writes, 0, nullptr);
     }
 }
 
@@ -2106,7 +2371,15 @@ vk::ShaderModule Demo::prepare_fs() {
     return frag_shader_module;
 }
 
-void Demo::prepare_pipeline() {
+vk::ShaderModule Demo::prepare_cs() {
+    std::vector<uint32_t> computeShaderBinary = LoadSpirvBinary(use_stripped_shaders ? "cube.comp.spirv" : "cube.comp.full.spirv");
+
+    comp_shader_module = prepare_shader_module(computeShaderBinary.data(), computeShaderBinary.size() * sizeof(uint32_t));
+
+    return comp_shader_module;
+}
+
+void Demo::prepare_graphics_pipeline() {
     vk::PipelineCacheCreateInfo const pipelineCacheInfo;
     auto result = device.createPipelineCache(&pipelineCacheInfo, nullptr, &pipelineCache);
     VERIFY(result == vk::Result::eSuccess);
@@ -2175,6 +2448,20 @@ void Demo::prepare_pipeline() {
 
     device.destroyShaderModule(frag_shader_module, nullptr);
     device.destroyShaderModule(vert_shader_module, nullptr);
+}
+
+void Demo::prepare_compute_pipeline() {
+    vk::PipelineShaderStageCreateInfo const computeShaderStageInfo =
+        vk::PipelineShaderStageCreateInfo().setStage(vk::ShaderStageFlagBits::eCompute).setModule(prepare_cs()).setPName("main");
+
+    auto const computePipelineInfo = vk::ComputePipelineCreateInfo()
+                                        .setStage(computeShaderStageInfo)
+                                        .setLayout(compute_pipeline_layout);
+
+    auto result = device.createComputePipelines(pipelineCache, 1, &computePipelineInfo, nullptr, &compute_pipeline);
+    VERIFY(result == vk::Result::eSuccess);
+
+    device.destroyShaderModule(comp_shader_module, nullptr);
 }
 
 void Demo::prepare_render_pass() {
@@ -2248,6 +2535,73 @@ void Demo::prepare_render_pass() {
                              .setPSubpasses(&subpass)
                              .setDependencyCount(2)
                              .setPDependencies(dependencies);
+
+    auto result = device.createRenderPass(&rp_info, nullptr, &render_pass);
+    VERIFY(result == vk::Result::eSuccess);
+}
+
+void Demo::prepare_render_pass_headless() {
+    const vk::AttachmentDescription attachments[2] = {
+        vk::AttachmentDescription()
+            .setFormat(format)
+            .setSamples(vk::SampleCountFlagBits::e1)
+            .setLoadOp(vk::AttachmentLoadOp::eClear)
+            .setStoreOp(vk::AttachmentStoreOp::eStore)
+            .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+            .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+            .setInitialLayout(vk::ImageLayout::eUndefined)
+            .setFinalLayout(vk::ImageLayout::eShaderReadOnlyOptimal), // Changed from ePresentSrcKHR
+        vk::AttachmentDescription()
+            .setFormat(depth.format)
+            .setSamples(vk::SampleCountFlagBits::e1)
+            .setLoadOp(vk::AttachmentLoadOp::eClear)
+            .setStoreOp(vk::AttachmentStoreOp::eDontCare) // Or eStore if you need depth data
+            .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+            .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+            .setInitialLayout(vk::ImageLayout::eUndefined)
+            .setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
+    };
+
+    // References stay the same
+    auto const color_reference = vk::AttachmentReference()
+        .setAttachment(0)
+        .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+
+    auto const depth_reference = vk::AttachmentReference()
+        .setAttachment(1)
+        .setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+
+    auto const subpass = vk::SubpassDescription()
+        .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+        .setInputAttachmentCount(0)
+        .setPInputAttachments(nullptr)
+        .setColorAttachmentCount(1)
+        .setPColorAttachments(&color_reference)
+        .setPResolveAttachments(nullptr)
+        .setPDepthStencilAttachment(&depth_reference)
+        .setPreserveAttachmentCount(0)
+        .setPPreserveAttachments(nullptr);
+
+    // Dependencies can be simplified since no presentation concerns
+    vk::SubpassDependency const dependency = 
+        vk::SubpassDependency()
+            .setSrcSubpass(VK_SUBPASS_EXTERNAL)
+            .setDstSubpass(0)
+            .setSrcStageMask(vk::PipelineStageFlagBits::eTopOfPipe)
+            .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput | 
+                           vk::PipelineStageFlagBits::eEarlyFragmentTests)
+            .setSrcAccessMask(vk::AccessFlagBits())
+            .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite | 
+                            vk::AccessFlagBits::eDepthStencilAttachmentWrite)
+            .setDependencyFlags(vk::DependencyFlags());
+
+    auto const rp_info = vk::RenderPassCreateInfo()
+        .setAttachmentCount(2)
+        .setPAttachments(attachments)
+        .setSubpassCount(1)
+        .setPSubpasses(&subpass)
+        .setDependencyCount(1)  // Reduced from 2
+        .setPDependencies(&dependency);
 
     auto result = device.createRenderPass(&rp_info, nullptr, &render_pass);
     VERIFY(result == vk::Result::eSuccess);
@@ -2491,7 +2845,9 @@ void Demo::resize() {
     device.destroyPipelineCache(pipelineCache, nullptr);
     device.destroyRenderPass(render_pass, nullptr);
     device.destroyPipelineLayout(pipeline_layout, nullptr);
+    device.destroyPipelineLayout(compute_pipeline_layout, nullptr);
     device.destroyDescriptorSetLayout(desc_layout, nullptr);
+    device.destroyDescriptorSetLayout(compute_desc_layout, nullptr);
 
     for (i = 0; i < texture_count; i++) {
         device.destroyImageView(textures[i].view, nullptr);
@@ -3253,28 +3609,36 @@ int main(int argc, char **argv) {
 
     demo.init(argc, argv);
 
+    if (!demo.headless_mode){
 #if defined(VK_USE_PLATFORM_XCB_KHR)
-    demo.create_xcb_window();
+        demo.create_xcb_window();
 #elif defined(VK_USE_PLATFORM_XLIB_KHR)
-    demo.use_xlib = true;
-    demo.create_xlib_window();
+        demo.use_xlib = true;
+        demo.create_xlib_window();
 #elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
-    demo.create_window();
+        demo.create_window();
 #endif
 
-    demo.init_vk_swapchain();
+        demo.init_vk_swapchain();
+    } else{
+        demo.init_vk_headless();
+    }
 
     demo.prepare();
 
+    if (!demo.headless_mode){
 #if defined(VK_USE_PLATFORM_XCB_KHR)
-    demo.run_xcb();
+        demo.run_xcb();
 #elif defined(VK_USE_PLATFORM_XLIB_KHR)
-    demo.run_xlib();
+        demo.run_xlib();
 #elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
-    demo.run();
+        demo.run();
 #elif defined(VK_USE_PLATFORM_DISPLAY_KHR)
-    demo.run_display();
+        demo.run_display();
 #endif
+    } else{
+        demo.run_headless();
+    }
 
     demo.cleanup();
 
@@ -3296,3 +3660,13 @@ static void demo_main(struct Demo &demo, void *view, int argc, const char *argv[
 #error "Platform not supported"
 #endif
 
+void Demo::run_headless() {
+    while (!quit) {
+        draw();
+        curFrame++;
+        fprintf(stdout, "frame %i", curFrame);
+        if (frameCount != UINT32_MAX && curFrame == frameCount) {
+            quit = true;
+        }
+    }
+}

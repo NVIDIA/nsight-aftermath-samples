@@ -33,7 +33,7 @@ layout (location = 0) out vec4 texcoord;
 layout (location = 1) out vec3 frag_pos;
 layout (location = 2) out float alpha;
 
-#define ENDLESSLOOP_VS 1
+#define ENDLESSLOOP_VS 0
 
 void main() 
 {

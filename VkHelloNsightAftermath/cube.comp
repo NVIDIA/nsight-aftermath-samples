@@ -1,0 +1,42 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(std140, binding = 0) restrict buffer buf {
+        mat4 MVP;
+        vec4 position[12*3];
+        vec4 attr[12*3];
+        vec4 offset;
+} ubuf;
+
+#define ENDLESSLOOP_CS 0
+#define SHAREDMEMOUTOFBOUNDS_CS 1
+#define OUTOFBOUNDS_CS 0
+
+#define SHARED_MEMORY_SIZE 64
+
+// Shared memory for the workgroup (doesn't require bindings)
+shared float sharedData[SHARED_MEMORY_SIZE];
+
+void main() {
+    vec4 inverted = vec4(1.0, 0.0, 0.0, 1.0);
+    vec4 position_temp = ubuf.position[2];
+
+#if OUTOFBOUNDS_CS
+    // Intentional out of bounds access for testing
+    uint bad_idx = 31324;  // Maximum uint value
+    ubuf.position[bad_idx] = vec4(1.0,0.0,0.0,1.0);
+#endif
+
+#if SHAREDMEMOUTOFBOUNDS_CS
+    uint idx_2 = 1;
+    uint bad_idx_2 = idx_2 + 31324;
+    sharedData[bad_idx_2] = 2.0;
+#endif
+
+#if ENDLESSLOOP_CS
+   while (true)
+   {
+   }
+#endif
+}

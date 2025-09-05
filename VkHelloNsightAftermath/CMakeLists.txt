@@ -244,6 +244,16 @@ add_custom_command(COMMENT "Compiling cube fragment shader"
                    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE_DIR:VkHelloNsightAftermath>/cube.frag.spirv ${CMAKE_BINARY_DIR}/cube.frag.spirv
                    MAIN_DEPENDENCY ${PROJECT_SOURCE_DIR}/cube.frag
                    DEPENDS ${PROJECT_SOURCE_DIR}/cube.frag ${GLSLANG_VALIDATOR})
+add_custom_command(COMMENT "Compiling cube compute shader"
+                   OUTPUT cube.comp.spirv
+                   COMMAND ${GLSLANG_VALIDATOR} -V -g -o $<TARGET_FILE_DIR:VkHelloNsightAftermath>/cube.comp.full.spirv
+                           ${PROJECT_SOURCE_DIR}/cube.comp
+                   COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE_DIR:VkHelloNsightAftermath>/cube.comp.full.spirv ${CMAKE_BINARY_DIR}/cube.comp.full.spirv
+                   COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE_DIR:VkHelloNsightAftermath>/cube.comp.full.spirv $<TARGET_FILE_DIR:VkHelloNsightAftermath>/cube.comp.spirv
+                   COMMAND ${CMAKE_COMMAND} -E chdir $<TARGET_FILE_DIR:VkHelloNsightAftermath> ${SPIRV_REMAP} --map all --strip-all --input cube.comp.spirv --output ./
+                   COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE_DIR:VkHelloNsightAftermath>/cube.comp.spirv ${CMAKE_BINARY_DIR}/cube.comp.spirv
+                   MAIN_DEPENDENCY ${PROJECT_SOURCE_DIR}/cube.comp
+                   DEPENDS ${PROJECT_SOURCE_DIR}/cube.comp ${GLSLANG_VALIDATOR} ${SPIRV_REMAP})
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -265,8 +275,10 @@ if(NOT WIN32)
                        NsightAftermathShaderDatabase.cpp
                        cube.vert
                        cube.frag
+                       cube.comp
                        cube.vert.spirv
-                       cube.frag.spirv)
+                       cube.frag.spirv
+                       cube.comp.spirv)
         target_link_libraries(VkHelloNsightAftermath PRIVATE Vulkan::Vulkan NsightAftermath::NsightAftermath dl)
         target_compile_options(VkHelloNsightAftermath PRIVATE -DVULKAN_HPP_DISABLE_IMPLICIT_RESULT_VALUE_CAST)
 endif()
@@ -284,8 +296,10 @@ else()
                    NsightAftermathShaderDatabase.cpp
                    cube.vert
                    cube.frag
+                   cube.comp
                    cube.vert.spirv
-                   cube.frag.spirv)
+                   cube.frag.spirv
+                   cube.comp.spirv)
     target_link_libraries(VkHelloNsightAftermath PRIVATE Vulkan::Vulkan NsightAftermath::NsightAftermath)
     target_compile_options(VkHelloNsightAftermath PRIVATE -DVULKAN_HPP_DISABLE_IMPLICIT_RESULT_VALUE_CAST)
 
