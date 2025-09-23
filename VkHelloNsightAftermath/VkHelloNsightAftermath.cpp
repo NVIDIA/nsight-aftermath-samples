@@ -1098,6 +1098,19 @@ void Demo::init(int argc, char **argv) {
     frameCount = UINT32_MAX;
     use_xlib = false;
 
+#if USE_NSIGHT_AFTERMATH
+    // Concatenate command line arguments for inclusion in Aftermath crash dumps
+    {
+        std::string cmdLine;
+        for (int i = 0; i < argc; ++i)
+        {
+            if (i > 0) cmdLine += " ";
+            if (argv[i]) cmdLine += argv[i];
+        }
+        gpuCrashTracker.SetCommandLine(cmdLine);
+    }
+#endif
+
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--use_staging") == 0) {
             use_staging_buffer = true;

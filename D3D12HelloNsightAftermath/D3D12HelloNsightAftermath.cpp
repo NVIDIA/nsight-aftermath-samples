@@ -19,6 +19,7 @@
 #include "VertexShader.h"
 #include "PixelShader.h"
 #include <sstream>
+#include <vector>
 
 D3D12HelloNsightAftermath::D3D12HelloNsightAftermath(UINT width, UINT height, std::wstring name)
     : DXSample(width, height, name)
@@ -86,6 +87,26 @@ void D3D12HelloNsightAftermath::LoadPipeline()
         GetHardwareAdapter(factory.Get(), &hardwareAdapter);
 
 #if USE_NSIGHT_AFTERMATH
+        // Add command line to crash dump description.
+        {
+            LPCWSTR wcmd = GetCommandLineW();
+            std::string utf8CmdLine;
+            if (wcmd)
+            {
+                int requiredSize = WideCharToMultiByte(CP_UTF8, 0, wcmd, -1, nullptr, 0, nullptr, nullptr);
+                if (requiredSize > 0)
+                {
+                    std::vector<char> buffer(static_cast<size_t>(requiredSize));
+                    int converted = WideCharToMultiByte(CP_UTF8, 0, wcmd, -1, buffer.data(), requiredSize, nullptr, nullptr);
+                    if (converted > 0)
+                    {
+                        utf8CmdLine.assign(buffer.data());
+                    }
+                }
+            }
+            m_gpuCrashTracker.SetCommandLine(utf8CmdLine);
+        }
+
         // Enable Nsight Aftermath GPU crash dump creation.
         // This needs to be done before the D3D device is created.
         m_gpuCrashTracker.Initialize();

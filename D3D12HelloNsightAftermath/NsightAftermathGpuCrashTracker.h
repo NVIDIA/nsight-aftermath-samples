@@ -26,6 +26,7 @@
 
 #include <map>
 #include <mutex>
+#include <string>
 
 #include "NsightAftermathHelpers.h"
 #include "NsightAftermathShaderDatabase.h"
@@ -46,6 +47,10 @@ public:
 
     // Initialize the GPU crash dump tracker.
     void Initialize();
+
+    // Set the process command line for inclusion in crash dump descriptions.
+    // May be called before Initialize(); value is cached and used in OnDescription.
+    void SetCommandLine(const std::string& commandLine) { m_commandLine = commandLine; }
 
 private:
 
@@ -163,4 +168,7 @@ private:
 
     // App-managed marker tracking
     const MarkerMap& m_markerMap;
+
+    // Optional: command line string for crash dump description
+    std::string m_commandLine;
 };

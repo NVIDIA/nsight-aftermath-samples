@@ -123,6 +123,13 @@ void GpuCrashTracker::OnDescription(PFN_GFSDK_Aftermath_AddGpuCrashDumpDescripti
     addDescription(GFSDK_Aftermath_GpuCrashDumpDescriptionKey_UserDefined, "This is a GPU crash dump example.");
     addDescription(GFSDK_Aftermath_GpuCrashDumpDescriptionKey_UserDefined + 1, "Engine State: Rendering.");
     addDescription(GFSDK_Aftermath_GpuCrashDumpDescriptionKey_UserDefined + 2, "More user-defined information...");
+
+    // Include command line if provided
+    if (!m_commandLine.empty())
+    {
+        std::string clPrefixed = std::string("CommandLine: ") + m_commandLine;
+        addDescription(GFSDK_Aftermath_GpuCrashDumpDescriptionKey_UserDefined + 3, clPrefixed.c_str());
+    }
 }
 
 // Handler for app-managed marker resolve callback
