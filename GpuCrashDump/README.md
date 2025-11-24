@@ -7,7 +7,7 @@ TDR timeout due to a very long running vertex shader.
 The sample used for capturing the GPU crash dump is a very basic D3D12
 application that renders only a single triangle. When inspecting the dump you
 will notice only a single vertex shader warp in flight when the GPU hang
-occured. This is because any fragment work from previous frames has already
+occurred. This is because any fragment work from previous frames has already
 retired from the shader units by the time the hang is detected and processed by
 the CPU. In real applications, there will usually be many more active warps
 listed, some executing warps without any problems or exceptions, and some
