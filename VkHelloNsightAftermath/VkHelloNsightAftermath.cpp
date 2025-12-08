@@ -42,6 +42,16 @@
 #define VULKAN_HPP_NO_EXCEPTIONS
 #define VULKAN_HPP_TYPESAFE_CONVERSION 1
 #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
+
+// This sample intentionally triggers GPU crashes to demonstrate Nsight Aftermath functionality.
+// During VK_ERROR_DEVICE_LOST cleanup, many Vulkan API calls will return VK_ERROR_DEVICE_LOST
+// instead of VK_SUCCESS (e.g., vkDeviceWaitIdle, vkWaitForFences). 
+// 
+// Vulkan-Hpp by default asserts that all API calls return VK_SUCCESS, which would cause
+// the application to abort during the necessary cleanup process. We disable these result
+// assertions to allow proper resource cleanup even when the device is in a lost state.
+#define VULKAN_HPP_ASSERT_ON_RESULT(x) ((void)(x))
+
 #include <vulkan/vulkan.hpp>
 
 #include "linmath.h"
@@ -842,6 +852,14 @@ void Demo::draw() {
             err_msg << "Unexpected crash dump status: " << status;
             ERR_EXIT(err_msg.str().c_str(), "Aftermath Error");
         }
+
+        // The cleanup process after VK_ERROR_DEVICE_LOST is identical to normal exit.
+        // Per Vulkan spec, child objects must be explicitly destroyed even when device is lost.
+        // 
+        // During cleanup, some API calls may return VK_ERROR_DEVICE_LOST (e.g. vkDeviceWaitIdle),
+        // but vkDestroy* functions remain safe to call and are required for proper resource cleanup.
+        // The application must handle these expected error codes gracefully.
+        cleanup();
 
         // Terminate on failure
         exit(1);

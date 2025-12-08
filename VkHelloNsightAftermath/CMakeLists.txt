@@ -139,16 +139,18 @@ if(UNIX) # i.e. Linux
     set(VKHELLONSIGHTAFTERMATH_WSI_SELECTION "XCB" CACHE STRING "Select WSI target for VkHelloNsightAftermath (XCB, XLIB, WAYLAND, DISPLAY)")
 
     if(BUILD_WSI_XCB_SUPPORT)
-        find_package(XCB REQUIRED)
+        find_package(XCB)
     endif()
 
     if(BUILD_WSI_XLIB_SUPPORT)
-        find_package(X11 REQUIRED)
+        find_package(X11)
     endif()
 
     if(BUILD_WSI_WAYLAND_SUPPORT)
-        find_package(Wayland REQUIRED)
-        include_directories(${WAYLAND_CLIENT_INCLUDE_DIR})
+        find_package(Wayland)
+        if(Wayland_FOUND)
+            include_directories(${WAYLAND_CLIENT_INCLUDE_DIR})
+        endif()
     endif()
 endif()
 
@@ -170,6 +172,9 @@ elseif(UNIX) # i.e. Linux
         if(NOT BUILD_WSI_XCB_SUPPORT)
             message(FATAL_ERROR "Selected XCB for VkHelloNsightAftermath build but not building Xcb support")
         endif()
+        if(NOT XCB_FOUND)
+            message(FATAL_ERROR "Selected XCB for VkHelloNsightAftermath build but XCB package not found")
+        endif()
         set(VKHELLONSIGHTAFTERMATH_INCLUDE_DIRS ${XCB_INCLUDE_DIRS} ${VKHELLONSIGHTAFTERMATH_INCLUDE_DIRS})
         link_libraries(${XCB_LIBRARIES})
         add_definitions(-DVK_USE_PLATFORM_XCB_KHR)
@@ -177,12 +182,18 @@ elseif(UNIX) # i.e. Linux
         if(NOT BUILD_WSI_XLIB_SUPPORT)
             message(FATAL_ERROR "Selected XLIB for VkHelloNsightAftermath build but not building Xlib support")
         endif()
+        if(NOT X11_FOUND)
+            message(FATAL_ERROR "Selected XLIB for VkHelloNsightAftermath build but X11 package not found")
+        endif()
         set(VKHELLONSIGHTAFTERMATH_INCLUDE_DIRS ${X11_INCLUDE_DIR} ${VKHELLONSIGHTAFTERMATH_INCLUDE_DIRS})
         link_libraries(${X11_LIBRARIES})
         add_definitions(-DVK_USE_PLATFORM_XLIB_KHR)
     elseif(VKHELLONSIGHTAFTERMATH_WSI_SELECTION STREQUAL "WAYLAND")
         if(NOT BUILD_WSI_WAYLAND_SUPPORT)
             message(FATAL_ERROR "Selected Wayland for VkHelloNsightAftermath build but not building Wayland support")
+        endif()
+        if(NOT Wayland_FOUND)
+            message(FATAL_ERROR "Selected Wayland for VkHelloNsightAftermath build but Wayland package not found")
         endif()
         set(VKHELLONSIGHTAFTERMATH_INCLUDE_DIRS ${WAYLAND_CLIENT_INCLUDE_DIR} ${VKHELLONSIGHTAFTERMATH_INCLUDE_DIRS})
         link_libraries(${WAYLAND_CLIENT_LIBRARIES})
@@ -269,6 +280,16 @@ if(NOT WIN32)
                        cube.frag.spirv)
         target_link_libraries(VkHelloNsightAftermath PRIVATE Vulkan::Vulkan NsightAftermath::NsightAftermath dl)
         target_compile_options(VkHelloNsightAftermath PRIVATE -DVULKAN_HPP_DISABLE_IMPLICIT_RESULT_VALUE_CAST)
+
+        # Add post-build step to copy Nsight Aftermath library to the installation directory
+        add_custom_command(TARGET VkHelloNsightAftermath POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "${NsightAftermath_LIBRARY}"
+                    $<TARGET_FILE_DIR:VkHelloNsightAftermath>
+            COMMENT "Copying Nsight Aftermath library to output directory")
+
+        # Also install the library to the installation directory
+        install(FILES "${NsightAftermath_LIBRARY}" DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
 else()
     if(CMAKE_CL_64)
