@@ -41,19 +41,40 @@
 # Use HINTS instead of PATH to search these locations before
 # searching system environment variables like $PATH that may
 # contain SDK directories.
+set(_VULKAN_SDK_NO_DEFAULT_PATH)
+set(_VULKAN_HEADERS_HINTS)
+
+if(VULKAN_HEADERS_INSTALL_DIR)
+    list(APPEND _VULKAN_HEADERS_HINTS "${VULKAN_HEADERS_INSTALL_DIR}/include")
+endif()
+if(NOT "$ENV{VULKAN_HEADERS_INSTALL_DIR}" STREQUAL "")
+    list(APPEND _VULKAN_HEADERS_HINTS "$ENV{VULKAN_HEADERS_INSTALL_DIR}/include")
+endif()
+
+if(NOT "$ENV{VULKAN_SDK}" STREQUAL "")
+    # If VULKAN_SDK is set, do not fall back to system include paths.
+    set(_VULKAN_SDK_NO_DEFAULT_PATH NO_DEFAULT_PATH)
+    list(APPEND _VULKAN_HEADERS_HINTS
+        "$ENV{VULKAN_SDK}/Include"
+        "$ENV{VULKAN_SDK}/include")
+endif()
+
 find_path(VulkanHeaders_INCLUDE_DIR
     NAMES vulkan/vulkan.h
     HINTS
-        ${VULKAN_HEADERS_INSTALL_DIR}/include
-        "$ENV{VULKAN_HEADERS_INSTALL_DIR}/include"
-        "$ENV{VULKAN_SDK}/include")
+        ${_VULKAN_HEADERS_HINTS}
+    ${_VULKAN_SDK_NO_DEFAULT_PATH})
 
 if(VulkanHeaders_INCLUDE_DIR)
    get_filename_component(VULKAN_REGISTRY_PATH_HINT ${VulkanHeaders_INCLUDE_DIR} DIRECTORY)
    find_path(VulkanRegistry_DIR
        NAMES vk.xml
-       HINTS "${VULKAN_REGISTRY_PATH_HINT}/share/vulkan/registry")
+       HINTS "${VULKAN_REGISTRY_PATH_HINT}/share/vulkan/registry"
+       ${_VULKAN_SDK_NO_DEFAULT_PATH})
 endif()
+
+unset(_VULKAN_SDK_NO_DEFAULT_PATH)
+unset(_VULKAN_HEADERS_HINTS)
 
 set(VulkanHeaders_INCLUDE_DIRS ${VulkanHeaders_INCLUDE_DIR})
 set(VulkanRegistry_DIRS ${VulkanRegistry_DIR})

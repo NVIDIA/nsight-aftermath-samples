@@ -115,21 +115,46 @@ endif()
 
 set(VKHELLONSIGHTAFTERMATH_INCLUDE_DIRS ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}/.. ${VulkanHeaders_INCLUDE_DIR})
 
-if (NOT GLSLANG_INSTALL_DIR AND DEFINED ENV{GLSLANG_INSTALL_DIR})
-    set(GLSLANG_INSTALL_DIR $ENV{GLSLANG_INSTALL_DIR})
-elseif(NOT GLSLANG_INSTALL_DIR AND Vulkan_FOUND)
-    if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-        set(GLSLANG_INSTALL_DIR $ENV{GLSLANG_INSTALL_DIR}/Bin)
-    elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
-        set(GLSLANG_INSTALL_DIR $ENV{GLSLANG_INSTALL_DIR}/Bin32)
-    endif()
+# Locate shader tools (glslangValidator, spirv-remap/spirv-opt).
+# Search order is hint paths first; if VULKAN_SDK is set, do not fall back to system PATH (/usr/bin, etc).
+set(_VK_SHADER_TOOL_HINTS)
+if(GLSLANG_INSTALL_DIR)
+    list(APPEND _VK_SHADER_TOOL_HINTS "${GLSLANG_INSTALL_DIR}" "${GLSLANG_INSTALL_DIR}/bin")
+endif()
+if(NOT "$ENV{GLSLANG_INSTALL_DIR}" STREQUAL "")
+    list(APPEND _VK_SHADER_TOOL_HINTS "$ENV{GLSLANG_INSTALL_DIR}" "$ENV{GLSLANG_INSTALL_DIR}/bin")
+endif()
+if(NOT "$ENV{VULKAN_SDK}" STREQUAL "")
+    list(APPEND _VK_SHADER_TOOL_HINTS "$ENV{VULKAN_SDK}/bin" "$ENV{VULKAN_SDK}/Bin" "$ENV{VULKAN_SDK}/Bin32")
 endif()
 
-if(GLSLANG_INSTALL_DIR)
-    message(STATUS "Using GLSLANG_INSTALL_DIR to look for glslangValidator")
-    find_program(GLSLANG_VALIDATOR NAMES glslangValidator HINTS "${GLSLANG_INSTALL_DIR}/bin" "$ENV{VULKAN_SDK}/bin" "$ENV{VULKAN_SDK}/Bin")
-    find_program(SPIRV_REMAP NAMES spirv-remap HINTS "${GLSLANG_INSTALL_DIR}/bin" "$ENV{VULKAN_SDK}/bin" "$ENV{VULKAN_SDK}/Bin")
+if(NOT "$ENV{VULKAN_SDK}" STREQUAL "")
+    set(_VK_SHADER_TOOL_NO_DEFAULT_PATH NO_DEFAULT_PATH)
+else()
+    unset(_VK_SHADER_TOOL_NO_DEFAULT_PATH)
 endif()
+
+find_program(GLSLANG_VALIDATOR NAMES glslangValidator HINTS ${_VK_SHADER_TOOL_HINTS} ${_VK_SHADER_TOOL_NO_DEFAULT_PATH})
+find_program(SPIRV_REMAP NAMES spirv-remap HINTS ${_VK_SHADER_TOOL_HINTS} ${_VK_SHADER_TOOL_NO_DEFAULT_PATH})
+find_program(SPIRV_OPT NAMES spirv-opt HINTS ${_VK_SHADER_TOOL_HINTS} ${_VK_SHADER_TOOL_NO_DEFAULT_PATH})
+
+if(GLSLANG_VALIDATOR)
+    message(STATUS "Using glslangValidator: ${GLSLANG_VALIDATOR}")
+else()
+    message(FATAL_ERROR "glslangValidator not found. Please install Vulkan SDK tools or set VULKAN_SDK/GLSLANG_INSTALL_DIR.")
+endif()
+
+if(SPIRV_REMAP)
+    message(STATUS "Using spirv-remap: ${SPIRV_REMAP}")
+else()
+    if(SPIRV_OPT)
+        message(STATUS "spirv-remap not found; using spirv-opt to strip debug information as a replacement: ${SPIRV_OPT}")
+    else()
+        message(FATAL_ERROR "Neither spirv-remap nor spirv-opt found. Please install Vulkan SDK tools or set VULKAN_SDK/GLSLANG_INSTALL_DIR.")
+    endif()
+endif()
+unset(_VK_SHADER_TOOL_HINTS)
+unset(_VK_SHADER_TOOL_NO_DEFAULT_PATH)
 
 if(UNIX) # i.e. Linux
     include(FindPkgConfig)
@@ -235,26 +260,29 @@ if(WIN32)
 
 endif()
 
-add_custom_command(COMMENT "Compiling cube vertex shader"
-                   OUTPUT cube.vert.spirv
-                   COMMAND ${GLSLANG_VALIDATOR} -V -g -o $<TARGET_FILE_DIR:VkHelloNsightAftermath>/cube.vert.full.spirv
-                           ${PROJECT_SOURCE_DIR}/cube.vert
-                   COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE_DIR:VkHelloNsightAftermath>/cube.vert.full.spirv ${CMAKE_BINARY_DIR}/cube.vert.full.spirv
-                   COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE_DIR:VkHelloNsightAftermath>/cube.vert.full.spirv $<TARGET_FILE_DIR:VkHelloNsightAftermath>/cube.vert.spirv
-                   COMMAND ${CMAKE_COMMAND} -E chdir $<TARGET_FILE_DIR:VkHelloNsightAftermath> ${SPIRV_REMAP} --map all --strip-all --input cube.vert.spirv --output ./
-                   COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE_DIR:VkHelloNsightAftermath>/cube.vert.spirv ${CMAKE_BINARY_DIR}/cube.vert.spirv
-                   MAIN_DEPENDENCY ${PROJECT_SOURCE_DIR}/cube.vert
-                   DEPENDS ${PROJECT_SOURCE_DIR}/cube.vert ${GLSLANG_VALIDATOR} ${SPIRV_REMAP})
-add_custom_command(COMMENT "Compiling cube fragment shader"
-                   OUTPUT cube.frag.spirv
-                   COMMAND ${GLSLANG_VALIDATOR} -V -g -o $<TARGET_FILE_DIR:VkHelloNsightAftermath>/cube.frag.full.spirv
-                           ${PROJECT_SOURCE_DIR}/cube.frag
-                   COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE_DIR:VkHelloNsightAftermath>/cube.frag.full.spirv ${CMAKE_BINARY_DIR}/cube.frag.full.spirv
-                   COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE_DIR:VkHelloNsightAftermath>/cube.frag.full.spirv $<TARGET_FILE_DIR:VkHelloNsightAftermath>/cube.frag.spirv
-                   COMMAND ${CMAKE_COMMAND} -E chdir $<TARGET_FILE_DIR:VkHelloNsightAftermath> ${SPIRV_REMAP} --map all --strip-all --input cube.frag.spirv --output ./
-                   COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE_DIR:VkHelloNsightAftermath>/cube.frag.spirv ${CMAKE_BINARY_DIR}/cube.frag.spirv
-                   MAIN_DEPENDENCY ${PROJECT_SOURCE_DIR}/cube.frag
-                   DEPENDS ${PROJECT_SOURCE_DIR}/cube.frag ${GLSLANG_VALIDATOR})
+# Macro to compile shaders with SPIR-V optimization
+macro(compile_shader SHADER_TYPE SPIRV_TOOL)
+    add_custom_command(COMMENT "Compiling cube ${SHADER_TYPE} shader"
+                       OUTPUT cube.${SHADER_TYPE}.spirv
+                       COMMAND ${GLSLANG_VALIDATOR} -V -g -o $<TARGET_FILE_DIR:VkHelloNsightAftermath>/cube.${SHADER_TYPE}.full.spirv
+                               ${PROJECT_SOURCE_DIR}/cube.${SHADER_TYPE}
+                       COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE_DIR:VkHelloNsightAftermath>/cube.${SHADER_TYPE}.full.spirv ${CMAKE_BINARY_DIR}/cube.${SHADER_TYPE}.full.spirv
+                       COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE_DIR:VkHelloNsightAftermath>/cube.${SHADER_TYPE}.full.spirv $<TARGET_FILE_DIR:VkHelloNsightAftermath>/cube.${SHADER_TYPE}.spirv
+                       COMMAND ${CMAKE_COMMAND} -E chdir $<TARGET_FILE_DIR:VkHelloNsightAftermath> ${${SPIRV_TOOL}} ${ARGN}
+                       COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE_DIR:VkHelloNsightAftermath>/cube.${SHADER_TYPE}.spirv ${CMAKE_BINARY_DIR}/cube.${SHADER_TYPE}.spirv
+                       MAIN_DEPENDENCY ${PROJECT_SOURCE_DIR}/cube.${SHADER_TYPE}
+                       DEPENDS ${PROJECT_SOURCE_DIR}/cube.${SHADER_TYPE} ${GLSLANG_VALIDATOR} ${${SPIRV_TOOL}})
+endmacro()
+
+if(SPIRV_REMAP)
+    # Strip debug information from SPIR-V
+    compile_shader(vert SPIRV_REMAP --strip-all --input cube.vert.spirv --output ./)
+    compile_shader(frag SPIRV_REMAP --strip-all --input cube.frag.spirv --output ./)
+else()
+    # Newer Vulkan SDKs removed spirv-remap. Use spirv-opt to strip debug information instead.
+    compile_shader(vert SPIRV_OPT --strip-debug --strip-nonsemantic cube.vert.spirv -o cube.vert.spirv)
+    compile_shader(frag SPIRV_OPT --strip-debug --strip-nonsemantic cube.frag.spirv -o cube.frag.spirv)
+endif()
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 

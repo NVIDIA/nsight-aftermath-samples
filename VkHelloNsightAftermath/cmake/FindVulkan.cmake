@@ -28,39 +28,72 @@
 #   Vulkan_LIBRARY        - the path to the Vulkan library
 #
 
+set(_VULKAN_SDK_NO_DEFAULT_PATH)
+set(_VULKAN_SDK_INCLUDE_PATHS)
+set(_VULKAN_SDK_LIBRARY_PATHS)
+
+if(NOT "$ENV{VULKAN_SDK}" STREQUAL "")
+  # If VULKAN_SDK is set, do not fall back to system include/library paths.
+  set(_VULKAN_SDK_NO_DEFAULT_PATH NO_DEFAULT_PATH)
+endif()
+
 if(WIN32)
+  if(NOT "$ENV{VULKAN_SDK}" STREQUAL "")
+    list(APPEND _VULKAN_SDK_INCLUDE_PATHS "$ENV{VULKAN_SDK}/Include")
+  endif()
+
   find_path(Vulkan_INCLUDE_DIR
     NAMES vulkan/vulkan.h
     PATHS
-      "$ENV{VULKAN_SDK}/Include"
+      ${_VULKAN_SDK_INCLUDE_PATHS}
+    ${_VULKAN_SDK_NO_DEFAULT_PATH}
     )
 
   if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    if(NOT "$ENV{VULKAN_SDK}" STREQUAL "")
+      list(APPEND _VULKAN_SDK_LIBRARY_PATHS "$ENV{VULKAN_SDK}/Lib" "$ENV{VULKAN_SDK}/Bin")
+    endif()
     find_library(Vulkan_LIBRARY
       NAMES vulkan-1
       PATHS
-        "$ENV{VULKAN_SDK}/Lib"
-        "$ENV{VULKAN_SDK}/Bin"
-        )
+        ${_VULKAN_SDK_LIBRARY_PATHS}
+      ${_VULKAN_SDK_NO_DEFAULT_PATH}
+      )
   elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
+    if(NOT "$ENV{VULKAN_SDK}" STREQUAL "")
+      list(APPEND _VULKAN_SDK_LIBRARY_PATHS "$ENV{VULKAN_SDK}/Lib32" "$ENV{VULKAN_SDK}/Bin32")
+    endif()
     find_library(Vulkan_LIBRARY
       NAMES vulkan-1
       PATHS
-        "$ENV{VULKAN_SDK}/Lib32"
-        "$ENV{VULKAN_SDK}/Bin32"
-        NO_SYSTEM_ENVIRONMENT_PATH
-        )
+        ${_VULKAN_SDK_LIBRARY_PATHS}
+      ${_VULKAN_SDK_NO_DEFAULT_PATH}
+      NO_SYSTEM_ENVIRONMENT_PATH
+      )
   endif()
 else()
-    find_path(Vulkan_INCLUDE_DIR
-      NAMES vulkan/vulkan.h
-      PATHS
-        "$ENV{VULKAN_SDK}/include")
-    find_library(Vulkan_LIBRARY
-      NAMES vulkan
-      PATHS
-        "$ENV{VULKAN_SDK}/lib")
+  if(NOT "$ENV{VULKAN_SDK}" STREQUAL "")
+    list(APPEND _VULKAN_SDK_INCLUDE_PATHS "$ENV{VULKAN_SDK}/include")
+    list(APPEND _VULKAN_SDK_LIBRARY_PATHS "$ENV{VULKAN_SDK}/lib")
+  endif()
+
+  find_path(Vulkan_INCLUDE_DIR
+    NAMES vulkan/vulkan.h
+    PATHS
+      ${_VULKAN_SDK_INCLUDE_PATHS}
+    ${_VULKAN_SDK_NO_DEFAULT_PATH}
+    )
+  find_library(Vulkan_LIBRARY
+    NAMES vulkan
+    PATHS
+      ${_VULKAN_SDK_LIBRARY_PATHS}
+    ${_VULKAN_SDK_NO_DEFAULT_PATH}
+    )
 endif()
+
+unset(_VULKAN_SDK_NO_DEFAULT_PATH)
+unset(_VULKAN_SDK_INCLUDE_PATHS)
+unset(_VULKAN_SDK_LIBRARY_PATHS)
 
 set(Vulkan_LIBRARIES ${Vulkan_LIBRARY})
 set(Vulkan_INCLUDE_DIRS ${Vulkan_INCLUDE_DIR})
