@@ -115,7 +115,7 @@ public:
         case GFSDK_Aftermath_Result_FAIL_DriverVersionNotSupported:
             return "Unsupported driver version - requires an NVIDIA R495 display driver or newer.";
         case GFSDK_Aftermath_Result_FAIL_D3dDllInterceptionNotSupported:
-            return "Aftermath is incompatible with D3D API interception, such as PIX or Nsight Graphics.";
+            return "Aftermath cannot initialize while an incompatible D3D API interception tool, such as an active Microsoft PIX graphics analysis session, is present.";
         default:
             return "Aftermath Error 0x" + std::to_hex_string(result);
         }
