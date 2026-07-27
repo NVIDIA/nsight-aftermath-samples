@@ -7,7 +7,7 @@ collection and decoding into a D3D12 application.
 
 * [Visual Studio 2022](https://www.visualstudio.com/)
 * [Windows SDK 10.0.22621.755 (October 2022 Update) or newer](https://developer.microsoft.com/en-US/windows/downloads/windows-10-sdk)
-* [Nsight Aftermath SDK 2025.5 or newer](https://developer.nvidia.com/nsight-aftermath)
+* [Nsight Aftermath SDK 2026.3 or newer](https://developer.nvidia.com/nsight-aftermath)
 * [NVIDIA R550 driver (or newer)](https://www.nvidia.com/Download/index.aspx?lang=en-us)
 
 ## Source Organization
@@ -42,9 +42,13 @@ GPU crash dump analysis tool.
 
 ## Running the Sample
 
-* Run `D3D12HelloNsightAftermath.exe`.
-* The application will render a simple animated triangle and will hang/TDR after
-  a few seconds.
+* Run `D3D12HelloNsightAftermath.exe` with no arguments, or with
+  `-crashMode ShaderHang`, to render a simple animated triangle and trigger a
+  shader hang/TDR after a few seconds.
+* Run `D3D12HelloNsightAftermath.exe -crashMode DeletedVertexBuffer` to destroy
+  the named vertex buffer after recording it in a command list. Submitting that
+  command list triggers a GPU page fault and demonstrates the resource history
+  and timeline information captured by Nsight Aftermath.
 * A GPU crash dump file (D3D12HelloNsightAftermath-<PID>-<COUNT>.nv-gpudmp),
   a text file containing the GPU crash dump data decoded into JSON
   (`D3D12HelloNsightAftermath-<PID>-<COUNT>.nv-gpudmp.json`) and a shader

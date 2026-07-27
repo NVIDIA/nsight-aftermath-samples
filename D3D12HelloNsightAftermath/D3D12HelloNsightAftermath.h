@@ -39,9 +39,16 @@ public:
     virtual void OnUpdate();
     virtual void OnRender();
     virtual void OnDestroy();
+    virtual void ParseCommandLineArgs(_In_reads_(argc) WCHAR* argv[], int argc) override;
 
 private:
     static const UINT FrameCount = 2;
+
+    enum class CrashMode
+    {
+        ShaderHang,
+        DeletedVertexBuffer,
+    };
 
     struct Vertex
     {
@@ -75,6 +82,8 @@ private:
     ComPtr<ID3D12Resource> m_constantBuffer;
     SceneConstantBuffer m_constantBufferData;
     UINT8* m_pCbvDataBegin;
+    CrashMode m_crashMode;
+    bool m_triggerDeletedVertexBuffer;
 
     // Synchronization objects.
     UINT m_frameIndex;

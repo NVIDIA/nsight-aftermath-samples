@@ -29,12 +29,50 @@ D3D12HelloNsightAftermath::D3D12HelloNsightAftermath(UINT width, UINT height, st
     , m_scissorRect(0, 0, static_cast<LONG>(width), static_cast<LONG>(height))
     , m_rtvDescriptorSize(0)
     , m_constantBufferData{}
+    , m_crashMode(CrashMode::ShaderHang)
+    , m_triggerDeletedVertexBuffer(false)
 #if USE_NSIGHT_AFTERMATH
     , m_hAftermathCommandListContext(nullptr)
     , m_gpuCrashTracker(m_markerMap)
     , m_frameCounter(0)
 #endif
 {
+}
+
+void D3D12HelloNsightAftermath::ParseCommandLineArgs(WCHAR* argv[], int argc)
+{
+    DXSample::ParseCommandLineArgs(argv, argc);
+
+    for (int i = 1; i < argc; ++i)
+    {
+        if (_wcsicmp(argv[i], L"-crashMode") == 0 ||
+            _wcsicmp(argv[i], L"/crashMode") == 0)
+        {
+            if (++i >= argc)
+            {
+                MessageBox(nullptr,
+                    L"-crashMode requires ShaderHang or DeletedVertexBuffer.",
+                    L"Invalid Command Line", MB_OK | MB_ICONERROR);
+                exit(1);
+            }
+
+            if (_wcsicmp(argv[i], L"ShaderHang") == 0)
+            {
+                m_crashMode = CrashMode::ShaderHang;
+            }
+            else if (_wcsicmp(argv[i], L"DeletedVertexBuffer") == 0)
+            {
+                m_crashMode = CrashMode::DeletedVertexBuffer;
+            }
+            else
+            {
+                MessageBox(nullptr,
+                    L"Unknown crash mode. Use ShaderHang or DeletedVertexBuffer.",
+                    L"Invalid Command Line", MB_OK | MB_ICONERROR);
+                exit(1);
+            }
+        }
+    }
 }
 
 void D3D12HelloNsightAftermath::OnInit()
@@ -230,6 +268,11 @@ void D3D12HelloNsightAftermath::LoadPipeline()
         for (UINT n = 0; n < FrameCount; n++)
         {
             ThrowIfFailed(m_swapChain->GetBuffer(n, IID_PPV_ARGS(&m_renderTargets[n])));
+#if USE_NSIGHT_AFTERMATH
+            const std::wstring renderTargetName = L"Swap Chain Render Target " + std::to_wstring(n);
+            ThrowIfFailed(m_renderTargets[n]->SetName(renderTargetName.c_str()));
+            AFTERMATH_CHECK_ERROR(GFSDK_Aftermath_DX12_UpdateResourceInfo(m_renderTargets[n].Get()));
+#endif
             m_device->CreateRenderTargetView(m_renderTargets[n].Get(), nullptr, rtvHandle);
             rtvHandle.Offset(1, m_rtvDescriptorSize);
         }
@@ -340,6 +383,11 @@ void D3D12HelloNsightAftermath::LoadAssets()
             nullptr,
             IID_PPV_ARGS(&m_vertexBuffer)));
 
+#if USE_NSIGHT_AFTERMATH
+        ThrowIfFailed(m_vertexBuffer->SetName(L"Vertex Buffer"));
+        AFTERMATH_CHECK_ERROR(GFSDK_Aftermath_DX12_UpdateResourceInfo(m_vertexBuffer.Get()));
+#endif
+
         // Copy the triangle data to the vertex buffer.
         UINT8* pVertexDataBegin;
         CD3DX12_RANGE readRange(0, 0);        // We do not intend to read from this resource on the CPU.
@@ -362,6 +410,11 @@ void D3D12HelloNsightAftermath::LoadAssets()
             D3D12_RESOURCE_STATE_GENERIC_READ,
             nullptr,
             IID_PPV_ARGS(&m_constantBuffer)));
+
+#if USE_NSIGHT_AFTERMATH
+        ThrowIfFailed(m_constantBuffer->SetName(L"Constant Buffer"));
+        AFTERMATH_CHECK_ERROR(GFSDK_Aftermath_DX12_UpdateResourceInfo(m_constantBuffer.Get()));
+#endif
 
         // Describe and create a constant buffer view.
         D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
@@ -404,7 +457,19 @@ void D3D12HelloNsightAftermath::OnUpdate()
     m_constantBufferData.offset.x += translationSpeed;
     if (m_constantBufferData.offset.x > offsetBounds)
     {
-        m_constantBufferData.offset.x = -offsetBounds;
+        if (m_crashMode == CrashMode::DeletedVertexBuffer)
+        {
+            // Keep a positive offset so the shader loop terminates instead of
+            // triggering the shader hang crash mode.
+            m_constantBufferData.offset.x = offsetBounds;
+            m_triggerDeletedVertexBuffer = true;
+        }
+        else
+        {
+            // A negative offset makes the shader loop increase alpha indefinitely,
+            // intentionally triggering the ShaderHang crash mode.
+            m_constantBufferData.offset.x = -offsetBounds;
+        }
     }
     memcpy(m_pCbvDataBegin, &m_constantBufferData, sizeof(m_constantBufferData));
 }
@@ -414,6 +479,14 @@ void D3D12HelloNsightAftermath::OnRender()
 {
     // Record all the commands we need to render the scene into the command list.
     PopulateCommandList();
+
+    if (m_triggerDeletedVertexBuffer)
+    {
+        // The command list retains the vertex buffer's GPU virtual address, but not
+        // the resource itself. Destroy it before submission to trigger a page fault.
+        m_vertexBuffer.Reset();
+        m_triggerDeletedVertexBuffer = false;
+    }
 
     // Execute the command list.
     ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
