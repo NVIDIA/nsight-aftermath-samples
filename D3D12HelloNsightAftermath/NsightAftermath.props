@@ -4,6 +4,7 @@
     <NSIGHT_AFTERMATH_SDK Condition="'$(NSIGHT_AFTERMATH_SDK)' == ''">C:\NsightAftermathSDK</NSIGHT_AFTERMATH_SDK>
     <NsightAftermathIncludeDir>$(NSIGHT_AFTERMATH_SDK)\include</NsightAftermathIncludeDir>
     <NsightAftermathLibDir Condition="'$(Platform)' == 'x64'">$(NSIGHT_AFTERMATH_SDK)\lib\x64</NsightAftermathLibDir>
+    <NsightAftermathLibDir Condition="'$(Platform)' == 'ARM64'">$(NSIGHT_AFTERMATH_SDK)\lib\arm64</NsightAftermathLibDir>
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
@@ -12,11 +13,13 @@
     <Link>
       <AdditionalLibraryDirectories>$(NsightAftermathLibDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies Condition="'$(Platform)' == 'x64'">GFSDK_AFTERMATH_Lib.x64.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies Condition="'$(Platform)' == 'ARM64'">GFSDK_AFTERMATH_Lib.arm64.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <Target Name="CopyNsightAftermathDll" AfterTargets="PostBuildEvent">
     <PropertyGroup>
       <NsightAftermathDllName Condition="'$(Platform)' == 'x64'">GFSDK_AFTERMATH_Lib.x64.dll</NsightAftermathDllName>
+      <NsightAftermathDllName Condition="'$(Platform)' == 'ARM64'">GFSDK_AFTERMATH_Lib.arm64.dll</NsightAftermathDllName>
     </PropertyGroup>
     <Copy SourceFiles="$(NsightAftermathLibDir)\$(NsightAftermathDllName)" DestinationFolder="$(OutDir)" />
   </Target>

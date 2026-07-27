@@ -48,19 +48,36 @@ if(WIN32 OR UNIX)
     )
 
   if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-    find_library(NsightAftermath_LIBRARY
-      NAMES GFSDK_Aftermath_Lib.x64
-      PATHS
-        "$ENV{NSIGHT_AFTERMATH_SDK}/lib/x64"
-        NO_SYSTEM_ENVIRONMENT_PATH
-        )
-    if(WIN32)
-      find_file(NsightAftermath_DLL
-        NAMES GFSDK_Aftermath_Lib.x64.dll
+    if(CMAKE_GENERATOR_PLATFORM STREQUAL "ARM64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|ARM64|aarch64")
+      find_library(NsightAftermath_LIBRARY
+        NAMES GFSDK_Aftermath_Lib.arm64
+        PATHS
+          "$ENV{NSIGHT_AFTERMATH_SDK}/lib/arm64"
+          NO_SYSTEM_ENVIRONMENT_PATH
+          )
+      if(WIN32)
+        find_file(NsightAftermath_DLL
+          NAMES GFSDK_Aftermath_Lib.arm64.dll
+          PATHS
+            "$ENV{NSIGHT_AFTERMATH_SDK}/lib/arm64"
+            NO_SYSTEM_ENVIRONMENT_PATH
+            )
+      endif()
+    else()
+      find_library(NsightAftermath_LIBRARY
+        NAMES GFSDK_Aftermath_Lib.x64
         PATHS
           "$ENV{NSIGHT_AFTERMATH_SDK}/lib/x64"
           NO_SYSTEM_ENVIRONMENT_PATH
           )
+      if(WIN32)
+        find_file(NsightAftermath_DLL
+          NAMES GFSDK_Aftermath_Lib.x64.dll
+          PATHS
+            "$ENV{NSIGHT_AFTERMATH_SDK}/lib/x64"
+            NO_SYSTEM_ENVIRONMENT_PATH
+            )
+      endif()
     endif()
   elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
     find_library(NsightAftermath_LIBRARY

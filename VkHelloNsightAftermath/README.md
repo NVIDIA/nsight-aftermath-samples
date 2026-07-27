@@ -11,6 +11,7 @@ On Windows
 * [CMake 3.17 or newer](https://cmake.org/download)
 * [Vulkan-SDK (1.2.135 or newer)](https://vulkan.lunarg.com/sdk/home)
 * [Nsight Aftermath SDK 2025.5 or newer](https://developer.nvidia.com/nsight-aftermath)
+  * For Windows on ARM (WoA) support, Nsight Aftermath SDK 2026.3 or newer is required
 * [NVIDIA R550 display driver or newer](https://www.nvidia.com/Download/index.aspx)
 * [Visual Studio 2022 or newer](https://www.visualstudio.com)
 
@@ -53,19 +54,49 @@ On Windows
 * Unpack the Nsight Aftermath SDK on your platform and make sure to set the
   `NSIGHT_AFTERMATH_SDK` environment variable to the directory containing the
   files.
-* Run CMake to generate your build files (for example,
-  `cmake -G "Visual Studio 17 2022" -A x64 -S . -B .\Built`).
-* Build the VkHelloNsightAftermath target from the generated
-  Visual Studio solution (`Built\VkHelloNsightAftermath.sln`)
-  or use CMake build command `cmake --build .\Built --config Release`.
+* Generate the Visual Studio solution files:
+  * For Windows x64 build:
+    ```
+    cmake -G "Visual Studio 17 2022" -A x64 -S . -B .\Built\x64
+    ```
+  * For Windows on ARM (WoA) build:
+    ```
+    cmake -G "Visual Studio 17 2022" -A ARM64 -S . -B .\Built\arm64
+    ```
+* Build the project using one of these methods:
+  * **Using Visual Studio:**
+    * Open the generated solution file:
+      * `Built\x64\VkHelloNsightAftermath.sln` for x64
+      * `Built\arm64\VkHelloNsightAftermath.sln` for ARM64
+    * Select the "Release" configuration
+    * Build the solution (F7 or Build > Build Solution)
+  * **Using CMake command line:**
+    * For x64:
+      ```
+      cmake --build .\Built\x64 --config Release
+      ```
+    * For ARM64:
+      ```
+      cmake --build .\Built\arm64 --config Release
+      ```
 
 On Linux
 
-* Install the Vulkan SDK on your platform and set up the `VULKAN_SDK`
-  environment varible, e.g., run `source <Vulkan SDK dir>/setup-env.sh`.
+* Install the Vulkan SDK on your platform. You can either:
+  * Install the Vulkan SDK and set up the `VULKAN_SDK` environment variable, e.g., run `source <Vulkan SDK dir>/setup-env.sh`, OR
+  * Install the system package: `sudo apt install libvulkan-dev`
 * Unpack the Nsight Aftermath SDK on your platform and make sure to set the
   `NSIGHT_AFTERMATH_SDK` environment variable to the directory containing the
   files.
+* Install required dependencies:
+  ```bash
+  sudo apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    cmake \
+    libxcb1-dev \
+    glslang-tools
+  ```
 * Create a directory for the build artifacts under the VkHelloNsightAftermath
   directory, e.g. `mkdir built && cd built`.
 * Run `cmake .. && make` to generate the Makefile and build the
